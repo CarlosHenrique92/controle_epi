@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Baixa pelo celular{% endblock %}
+{% block content %}
+<h1>Baixa pelo celular (câmera)</h1>
+<p class="muted">
+  Selecione o destinatário, toque em <strong>Iniciar câmera</strong> e aproxime a etiqueta.
+  Cada leitura baixa <strong>1 unidade</strong> automaticamente.
+</p>
+
+<div class="form-row" style="margin-bottom:10px;">
+  <div class="field">
+    <label>Destinatário</label>
+    <input type="text" id="destinatario" placeholder="Ex.: Jean Caolaço" required>
+  </div>
+  <button class="btn" id="start">Iniciar câmera</button>
+  <button class="btn secondary" id="stop" disabled>Parar</button>
+</div>
+
+<div id="viewport" class="card" style="padding:0; overflow:hidden; height:320px; display:flex; align-items:center; justify-content:center;">
+  <video id="video" style="width:100%; height:100%; object-fit:cover;"></video>
+</div>
+
+<div class="notice" id="status" style="margin-top:10px;">Aguardando…</div>
+
+<h2>Últimas leituras</h2>
+<table class="table" id="leiturastb">
+  <thead><tr><th>Item</th><th>Código</th><th>Saldo após</th><th>Hora</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<!-- QuaggaJS local -->
+<script src="{{ url_for('static', filename='js/quagga.min.js') }}"></script>
+<script>
+// Guarda destinatário entre sessões
+const destInput = document.getElementById('destinatario');
+destInput.value = localStorage.getItem('destinatario_epi') || '';
+destInput.addEventListener('change', ()=>localStorage.setItem('destinatario_epi', destInput.value.trim()));
+
+const btnStart = document.getElementById('start');
+const btnStop  = document.getElementById('stop');
+const statusEl = document.getElementById('status');
+const tbody    = document.querySelector('#leiturastb tbody');
+
+let scanning = false;
+let lastCode = '';
+let lastTime = 0;
+
+function setStatus(msg, ok=true){
+  statusEl.textContent = msg;
+  statusEl.className = 'notice ' + (ok ? 'good' : 'bad');
+}
+
+// Evita duplicados muito rápidos
+function isDuplicate(code){
+  const now = Date.now();
+  if(code === lastCode && (now - lastTime) < 500){ return true; }
+  lastCode = code; lastTime = now; return false;
+}
+
+function startScanner(){
+  const dest = destInput.value.trim();
+  if(!dest){ alert('Informe o destinatário.'); destInput.focus(); return; }
+
+  Quagga.init({
+    inputStream: {
+      type: "LiveStream",
+      target: document.querySelector("#viewport"),
+      constraints: {
+        facingMode: "environment" // câmera traseira
+      }
+    },
+    decoder: {
+      readers: ["code_128_reader"]  // nossas etiquetas são Code128
+    },
+    locate: true
+  }, function(err){
+    if(err){ setStatus('Erro ao iniciar câmera: '+err, false); return; }
+    Quagga.start();
+    scanning = true;
+    btnStart.disabled = true;
+    btnStop.disabled  = false;
+    setStatus('Câmera ligada. Aponte para a etiqueta…', true);
+  });
+
+  Quagga.onDetected(async function(data){
+    const code = (data.codeResult && data.codeResult.code) ? data.codeResult.code.trim() : '';
+    if(!code || isDuplicate(code)) return;
+
+    try{
+      const resp = await fetch("/api/baixa", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ codigo: code, destinatario: dest })
+      });
+      const json = await resp.json();
+      if(json.ok){
+        setStatus(`OK: ${json.item} (-1) para ${dest}. Saldo: ${json.saldo}`, true);
+        const tr = document.createElement('tr');
+        const hora = new Date().toLocaleTimeString();
+        tr.innerHTML = `<td>${json.item}</td><td class="small">${json.codigo}</td><td>${json.saldo}</td><td class="small">${hora}</td>`;
+        tbody.prepend(tr);
+        // vibra levemente para feedback (sem som)
+        if(navigator.vibrate){ navigator.vibrate(60); }
+      }else{
+        setStatus('Erro: '+(json.erro||'Falha desconhecida'), false);
+        if(navigator.vibrate){ navigator.vibrate([80,40,80]); }
+      }
+    }catch(e){
+      setStatus('Falha ao comunicar com o servidor. Verifique a conexão.', false);
+    }
+  });
+}
+
+function stopScanner(){
+  if(scanning){
+    Quagga.stop();
+    scanning = false;
+    btnStart.disabled = false;
+    btnStop.disabled  = true;
+    setStatus('Câmera parada.', true);
+  }
+}
+
+btnStart.addEventListener('click', startScanner);
+btnStop .addEventListener('click', stopScanner);
+
+// Para a câmera ao sair
+window.addEventListener('beforeunload', stopScanner);
+</script>
+{% endblock %}

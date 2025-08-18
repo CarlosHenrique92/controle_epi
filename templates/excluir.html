@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Excluir item{% endblock %}
+{% block content %}
+<h1>Excluir item</h1>
+<p class="muted">Esta ação removerá o item, suas etiquetas e todo o histórico de movimentações associado.</p>
+
+{% if erro %}<div class="notice bad"><strong>{{ erro }}</strong></div>{% endif %}
+
+{% if not item %}
+  <div class="notice bad">Item não encontrado.</div>
+  <div class="actions" style="margin-top:10px;">
+    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Voltar para itens</a>
+  </div>
+{% else %}
+  <table class="table" style="margin-bottom:12px;">
+    <thead>
+      <tr><th>Nome</th><th>Código</th><th>Saldo</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ item.nome }}</td>
+        <td class="small">{{ item.codigo }}</td>
+        <td>{{ item.saldo }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este item e todo o histórico associado? Esta ação não pode ser desfeita.');">
+    <div class="actions">
+      <button type="submit" class="btn danger">Excluir definitivamente</button>
+      <a class="btn secondary" href="{{ url_for('itens_lista') }}">Cancelar</a>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

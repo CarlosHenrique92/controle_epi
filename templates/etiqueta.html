@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiqueta</title>
+  <style>
+    /* Remove margens e cabeçalhos na impressão */
+    @page { margin: 0; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #111827;
+    }
+    /* Caixa da etiqueta */
+    .etiqueta {
+      width: 200px; /* ~2cm largura */
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      text-align: center;
+      background: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .nome {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    .codigo {
+      font-size: 13px;
+      margin-top: 4px;
+      color: #374151;
+    }
+    /* Esconde botões na impressão */
+    @media print {
+      #print, #back { display: none !important; }
+    }
+    /* Botões na visualização normal */
+    .actions {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn.secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+  </style>
+</head>
+<body onload="window.print()">
+
+  <div class="actions">
+    <button id="print" class="btn" onclick="window.print()">🖨️ Imprimir</button>
+    <button id="back" class="btn secondary" onclick="window.history.back()">⬅ Voltar</button>
+  </div>
+
+  <div class="etiqueta">
+    <div class="nome">{{ nome }}</div>
+    <img src="{{ url_for('static', filename='barcodes/' + codigo + '.png') }}" alt="Código de barras {{ codigo }}">
+    <div class="codigo">{{ codigo }}</div>
+  </div>
+
+</body>
+</html>
+

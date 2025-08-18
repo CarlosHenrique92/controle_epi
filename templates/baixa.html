@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Baixa automática{% endblock %}
+{% block content %}
+<h1>Baixa automática</h1>
+<p class="muted">Bipe o código do EPI. Cada bip = baixa de 1 unidade. O destinatário fica fixo até você trocar.</p>
+
+{% if ok and msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<form method="POST" class="form" id="form-baixa">
+  <div class="form-row">
+    <div class="field">
+      <label>Destinatário</label>
+      <input type="text" id="destinatario" name="destinatario"
+             value="{{ destinatario_atual }}" placeholder="Quem recebe" required>
+    </div>
+    <div class="field" style="min-width:260px;">
+      <label>Código do item</label>
+      <input type="text" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
+    </div>
+    <button type="submit" class="btn">Registrar</button>
+    <button type="button" class="btn secondary" id="btn-relatorio-hoje">Relatório de hoje</button>
+  </div>
+</form>
+
+<h2>Estoque atual</h2>
+<table class="table">
+  <thead><tr><th>Item</th><th>Código</th><th>Saldo</th></tr></thead>
+  <tbody>
+    {% for item in itens %}
+      <tr><td>{{ item.nome }}</td><td class="small">{{ item.codigo }}</td><td>{{ item.saldo }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  function hojeBR(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
+  document.getElementById('btn-relatorio-hoje').addEventListener('click', function(){
+    const dest = document.getElementById('destinatario').value.trim();
+    if(!dest){ alert('Informe o destinatário primeiro.'); return; }
+    const p = new URLSearchParams({destinatario:dest, data_ini:hojeBR(), data_fim:hojeBR()});
+    window.open(`/relatorios?${p.toString()}`,'_blank');
+  });
+  window.addEventListener('load', ()=> document.getElementById('codigo')?.focus());
+</script>
+{% endblock %}

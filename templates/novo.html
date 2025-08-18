@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Novo item{% endblock %}
+{% block content %}
+<h1>Cadastrar NOVO EPI</h1>
+<p class="muted">Geramos o código interno se você deixar em branco. Ao salvar, oferecemos a etiqueta para impressão.</p>
+
+{% if mensagem %}<div class="notice good">{{ mensagem }}</div>{% endif %}
+{% if etiqueta_codigo %}
+  <div class="actions" style="margin:10px 0;">
+    <a class="btn" target="_blank" href="{{ url_for('etiqueta', codigo=etiqueta_codigo) }}">🖨️ Imprimir etiqueta ({{ etiqueta_codigo }})</a>
+  </div>
+{% endif %}
+
+<form method="POST">
+  <div class="form-row">
+    <div class="field">
+      <label>Nome do EPI</label>
+      <input type="text" name="nome" required placeholder="Ex.: Capacete, Luva de raspa">
+    </div>
+    <div class="field">
+      <label>Código interno (vazio = gerar)</label>
+      <input type="text" name="codigo" placeholder="EPI000123">
+    </div>
+    <div class="field" style="max-width:160px;">
+      <label>Saldo inicial</label>
+      <input type="number" name="saldo" min="0" value="0" required>
+    </div>
+    <button class="btn" type="submit">Salvar</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Imprimir etiquetas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --w: 50mm;  /* largura da etiqueta */
+    --h: 30mm;  /* altura  da etiqueta */
+    --gap: 3mm; /* espaçamento na folha */
+    --fs1: 10pt; /* nome */
+    --fs2: 9pt;  /* número/código */
+  }
+  @page { margin: 6mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, Arial, sans-serif; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--w), 1fr));
+    gap: var(--gap);
+    padding: var(--gap);
+  }
+  .etq {
+    width: var(--w);
+    height: var(--h);
+    border: 1px dashed #ccc; /* tire no modo final */
+    padding: 2mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+    break-inside: avoid;
+  }
+  .nome { font-size: var(--fs1); line-height: 1.1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .linha2 { display:flex; justify-content: space-between; font-size: var(--fs2); }
+  .linha2 code { font-family: ui-monospace, Consolas, monospace; }
+  .bc { width: 100%; height: auto; }
+  @media print {
+    .grid { gap: 0; padding: 0; }
+    .etq { border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="grid">
+  {% for e in etiquetas %}
+  <div class="etq">
+    <div class="nome" title="{{e['nome']}}">{{ e['nome'] }}</div>
+    <img class="bc" src="{{ url_for('static', filename='barcodes/' + e['codigo'] + '.png') }}" alt="barcode">
+    <div class="linha2">
+      <span>#{{ e['numero_etiqueta'] }}</span>
+      <code>{{ e['codigo'] }}</code>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<script>window.addEventListener('load', ()=> window.print());</script>
+</body>
+</html>

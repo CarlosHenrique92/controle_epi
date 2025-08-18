@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Editar item{% endblock %}
+{% block content %}
+<h1>Editar item</h1>
+<p class="muted">Altere nome, código e saldo manualmente. O código precisa ser único.</p>
+
+{% if erro %}<div class="notice bad"><strong>{{ erro }}</strong></div>{% endif %}
+{% if not item %}
+  <div class="notice bad">Item não encontrado.</div>
+  <div class="actions" style="margin-top:10px;">
+    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Voltar para itens</a>
+  </div>
+{% else %}
+<form method="POST">
+  <div class="form-row">
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" name="nome" value="{{ item.nome }}" required>
+    </div>
+    <div class="field">
+      <label>Código (único)</label>
+      <input type="text" name="codigo" value="{{ item.codigo }}" required>
+    </div>
+    <div class="field" style="max-width:180px;">
+      <label>Saldo</label>
+      <input type="number" name="saldo" min="0" value="{{ item.saldo }}" required>
+    </div>
+    <button type="submit" class="btn">Salvar alterações</button>
+    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Cancelar</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

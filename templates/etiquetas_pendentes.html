@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="max-width:920px; margin-top:18px;">
+  <h4>Etiquetas pendentes</h4>
+  <div class="card p-3">
+    {% if rows and rows|length %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="checkAll"></th>
+            <th># Etiqueta</th>
+            <th>Nome</th>
+            <th>Código</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td><input type="checkbox" class="ck" value="{{r['id']}}"></td>
+            <td>{{r['numero_etiqueta']}}</td>
+            <td>{{r['nome']}}</td>
+            <td><code>{{r['codigo']}}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button id="btPrintSel" class="btn btn-primary">Imprimir selecionadas</button>
+      <button id="btMarkSel" class="btn btn-outline-secondary">Marcar como impresso</button>
+      <a class="btn btn-light" href="/etiquetas/print" target="_blank">Imprimir todas pendentes</a>
+    </div>
+    {% else %}
+      <div class="text-muted">Sem etiquetas pendentes.</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function(){
+  const $all = document.getElementById('checkAll');
+  const getSel = () => Array.from(document.querySelectorAll('.ck:checked')).map(i=>parseInt(i.value,10));
+
+  $all?.addEventListener('change', ()=>{
+    document.querySelectorAll('.ck').forEach(i=> i.checked = $all.checked);
+  });
+
+  document.getElementById('btPrintSel')?.addEventListener('click', ()=>{
+    const ids = getSel();
+    if(!ids.length) return alert('Selecione ao menos uma etiqueta.');
+    window.open('/etiquetas/print?ids='+ids.join(','), '_blank');
+  });
+
+  document.getElementById('btMarkSel')?.addEventListener('click', async ()=>{
+    const ids = getSel();
+    if(!ids.length) return alert('Selecione ao menos uma etiqueta.');
+    const r = await fetch('/etiquetas/marcar_impresso', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ids})
+    });
+    const j = await r.json();
+    if(j.ok) location.reload();
+    else alert(j.msg || 'Falha ao atualizar status.');
+  });
+})();
+</script>
+{% endblock %}

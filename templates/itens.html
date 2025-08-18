@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Itens{% endblock %}
+{% block content %}
+<h1>Itens de EPI</h1>
+<p class="muted">Edite ou exclua itens. A exclusão remove também a etiqueta e as movimentações, conforme configurado.</p>
+<td class="text-end">
+  <a class="btn btn-light btn-sm" target="_blank"
+     href="/etiqueta/{{ item.codigo }}">Etiqueta rápida</a>
+
+  <button class="btn btn-primary btn-sm reenf" data-codigo="{{ item.codigo }}">
+    Reimprimir (com nº)
+  </button>
+</td>
+
+<table class="table">
+  <thead>
+    <tr><th>Item</th><th>Código</th><th>Saldo</th><th>Ações</th></tr>
+  </thead>
+  <tbody>
+    {% for it in itens %}
+    <tr>
+      <td>{{ it.nome }}</td>
+      <td class="small">{{ it.codigo }}</td>
+      <td>{{ it.saldo }}</td>
+      <td class="actions">
+        <a class="btn secondary" href="{{ url_for('editar_item', item_id=it.id) }}">Editar</a>
+        <a class="btn danger" href="{{ url_for('excluir_item', item_id=it.id) }}">Excluir</a>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if itens|length == 0 %}
+    <tr><td colspan="4">Nenhum item cadastrado.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}
+
+<script>
+document.querySelectorAll('.reenf').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const codigo = btn.dataset.codigo;
+    try{
+      const r = await fetch('/etiquetas/enfileirar', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ codigo })
+      });
+      const j = await r.json();
+      if(j.ok){
+        // abre a página de impressão já com a etiqueta criada
+        window.open('/etiquetas/print?ids='+j.id, '_blank');
+      }else{
+        alert(j.msg || 'Falha ao reenfileirar.');
+      }
+    }catch(e){
+      alert('Erro de rede: '+e);
+    }
+  });
+});
+</script>

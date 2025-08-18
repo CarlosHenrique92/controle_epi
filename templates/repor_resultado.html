@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Reposição aplicada{% endblock %}
+{% block content %}
+<h1>Reposição aplicada</h1>
+{% if resumo %}
+  <div class="notice good">{{ resumo }}</div>
+{% else %}
+  <div class="notice">Nenhuma alteração realizada.</div>
+{% endif %}
+<div class="actions" style="margin-top:10px;">
+  <a class="btn" href="{{ url_for('repor') }}">↺ Fazer nova reposição</a>
+  <a class="btn secondary" href="{{ url_for('baixa_automatica') }}">Ir para Baixa</a>
+</div>
+{% endblock %}

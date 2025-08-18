@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Resultado da baixa{% endblock %}
+{% block content %}
+<h1>Resultado</h1>
+{% if ok %}
+  <div class="notice good">{{ msg }}</div>
+{% else %}
+  <div class="notice bad">{{ msg }}</div>
+{% endif %}
+
+<div class="actions" style="margin-top:10px;">
+  <a class="btn" href="{{ url_for('escolher_destinatario') }}">Trocar destinatário</a>
+  <a class="btn secondary" href="{{ url_for('baixa_automatica') }}">Ir para Baixa (PC)</a>
+</div>
+
+<script>
+// Volta automático em 2 segundos (opcional)
+setTimeout(function(){
+  history.length ? history.back() : window.location.href = "{{ url_for('escolher_destinatario') }}";
+}, 2000);
+</script>
+{% endblock %}

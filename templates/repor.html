@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Reposição{% endblock %}
+{% block content %}
+<h1>Reposição de estoque</h1>
+<p class="muted">Pesquise pelo nome ou código, informe apenas as quantidades que deseja adicionar e clique em aplicar.</p>
+
+<form method="GET" class="form-row" style="margin-bottom:10px;">
+  <div class="field">
+    <label>Buscar</label>
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="Ex.: luva, capacete, EPI000012">
+  </div>
+  <button class="btn secondary" type="submit">Buscar</button>
+  {% if q %}<a class="btn secondary" href="{{ url_for('repor') }}">Limpar</a>{% endif %}
+</form>
+
+<form method="POST">
+  <table class="table">
+    <thead>
+      <tr><th>Item</th><th>Código</th><th>Saldo atual</th><th>Adicionar</th></tr>
+    </thead>
+    <tbody>
+      {% for it in itens %}
+      <tr>
+        <td>{{ it.nome }}</td>
+        <td class="small">{{ it.codigo }}</td>
+        <td>{{ it.saldo }}</td>
+        <td><input type="number" name="qtd_{{ it.id }}" min="0" value="0"></td>
+      </tr>
+      {% endfor %}
+      {% if itens|length == 0 %}
+      <tr><td colspan="4">Nenhum item encontrado para "{{ q }}".</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  <div class="actions" style="margin-top:10px;">
+    <button class="btn" type="submit">Aplicar reposição</button>
+  </div>
+</form>
+{% endblock %}

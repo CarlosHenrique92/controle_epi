@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Definir destinatário{% endblock %}
+{% block content %}
+<h1>Definir destinatário</h1>
+<p class="muted">O nome ficará salvo neste celular (cookie) para as próximas baixas.</p>
+
+{% if ok %}<div class="notice good">Destinatário salvo com sucesso.</div>{% endif %}
+{% if erro %}<div class="notice bad">{{ erro }}</div>{% endif %}
+
+<form method="POST" class="form-row" style="margin-top:8px;">
+  <div class="field">
+    <label>Destinatário</label>
+    <input type="text" name="destinatario" value="{{ atual or '' }}" placeholder="Ex.: Jean Caolaço" required>
+  </div>
+  <button class="btn" type="submit">Salvar</button>
+  <a class="btn secondary" href="{{ url_for('baixa_automatica') }}">Voltar</a>
+</form>
+
+<p class="small" style="margin-top:10px;">
+  Dica: depois de salvar, configure o app leitor para abrir URLs no formato
+  <code>http://SEU_IP:5000/baixa?codigo=CODIGO_LIDO</code>.
+</p>
+{% endblock %}
