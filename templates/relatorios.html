@@ -1,103 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Relatórios de Envios{% endblock %}
+{% block title %}Reposição{% endblock %}
+
 {% block content %}
-<h1>Relatório de Envios</h1>
-<p class="muted">
-  Filtre por colaborador (destinatário) e período em <strong>DD/MM/AAAA</strong>. 
-  O resultado mostra os itens enviados e a data/hora. Você pode exportar para Excel.
-</p>
+<h1>Reposição</h1>
+<p class="page-sub muted">Pesquise pelo item e informe as quantidades para repor o estoque.</p>
 
-<form method="GET" class="form-row" style="margin-bottom:10px;">
-  <div class="field">
-    <label>Colaborador (destinatário)</label>
-    <input list="destinatarios" name="destinatario" value="{{ destinatario or '' }}" placeholder="Ex.: Jean Caolaço">
-    <datalist id="destinatarios">
-      {% for d in destinatarios_unicos %}
-      <option value="{{ d }}">{{ d }}</option>
-      {% endfor %}
-    </datalist>
+<form method="GET" id="form-repor" class="form-novo" autocomplete="off">
+  <div class="form-line">
+    <div>
+      <label for="q">Buscar (nome ou código)</label>
+      <input class="input" id="q" name="q" value="{{ q or '' }}" placeholder="Ex.: LUVA, EPI000123">
+    </div>
+    <div></div><div></div>
+    <div class="form-actions">
+      <button class="btn outline" type="submit">Buscar</button>
+      <a class="btn secondary" href="{{ url_for('repor') }}">Limpar</a>
+    </div>
   </div>
-
-  <div class="field" style="max-width:200px;">
-    <label>Data inicial</label>
-    <input type="text" name="data_ini" value="{{ data_ini or '' }}" placeholder="DD/MM/AAAA" inputmode="numeric" autocomplete="off">
-  </div>
-
-  <div class="field" style="max-width:200px;">
-    <label>Data final</label>
-    <input type="text" name="data_fim" value="{{ data_fim or '' }}" placeholder="DD/MM/AAAA" inputmode="numeric" autocomplete="off">
-  </div>
-
-  <button class="btn" type="submit">Filtrar</button>
-
-  {% if movimentos|length > 0 %}
-    <a class="btn secondary" href="{{ url_for('relatorios_export', destinatario=destinatario, data_ini=data_ini, data_fim=data_fim) }}">Exportar Excel</a>
-  {% endif %}
 </form>
 
-{% if movimentos|length > 0 %}
-  <div class="notice" style="margin-bottom:10px;">
-    {{ movimentos|length }} registro(s) encontrado(s).
+<form method="POST" id="form-repor" class="form-novo" style="margin-top:14px">
+  <table class="table">
+    <thead>
+      <tr><th>Item</th><th>Código</th><th>Saldo</th><th style="width:160px;text-align:right">Repor</th></tr>
+    </thead>
+    <tbody>
+      {% for it in itens %}
+      <tr>
+        <td>{{ it.nome }}</td>
+        <td class="small">{{ it.codigo }}</td>
+        <td>{{ it.saldo }}</td>
+        <td style="text-align:right">
+          <input class="input" type="number" name="qtd_{{ it.id }}" min="0" value="0" style="max-width:120px; display:inline-block;">
+        </td>
+      </tr>
+      {% endfor %}
+      {% if itens|length == 0 %}
+      <tr><td colspan="4">Nenhum item encontrado.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <div class="form-actions" style="margin-top:10px">
+    <button class="btn primary" type="submit">Aplicar reposição</button>
+    <a class="btn secondary" href="{{ url_for('repor') }}">Cancelar</a>
   </div>
-{% endif %}
-
-<table class="table">
-  <thead>
-    <tr>
-      <th>Destinatário</th>
-      <th>Item</th>
-      <th>Código</th>
-      <th>Quantidade</th>
-      <th>Data/Hora</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for mv in movimentos %}
-    <tr>
-      <td>{{ mv.destinatario }}</td>
-      <td>{{ mv.item_nome }}</td>
-      <td class="small">{{ mv.item_codigo }}</td>
-      <td>{{ mv.quantidade }}</td>
-      <td class="small">
-        {% if mv.data %}
-          {{ mv.data[8:10] }}/{{ mv.data[5:7] }}/{{ mv.data[0:4] }} {{ mv.data[11:] }}
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-
-    {% if movimentos|length == 0 and (destinatario or data_ini or data_fim) %}
-    <tr>
-      <td colspan="5">Nenhum envio encontrado para os filtros informados.</td>
-    </tr>
-    {% endif %}
-  </tbody>
-</table>
-
-<!-- Máscara de data dd/mm/aaaa (JavaScript puro) -->
-<script>
-function mascaraData(input) {
-  let v = input.value.replace(/\D/g, ""); // remove não numéricos
-  if (v.length >= 3 && v.length <= 4) {
-    v = v.replace(/^(\d{2})(\d{0,2})/, "$1/$2");
-  } else if (v.length > 4) {
-    v = v.replace(/^(\d{2})(\d{2})(\d{0,4})/, "$1/$2/$3");
-  }
-  input.value = v;
-}
-
-document.addEventListener("DOMContentLoaded", function(){
-  const camposData = document.querySelectorAll('input[name="data_ini"], input[name="data_fim"]');
-  camposData.forEach(campo => {
-    campo.addEventListener("input", function() { mascaraData(campo); });
-    // opcional: validação simples ao sair do campo (ex.: 31/02/2025 não valida format.)
-    campo.addEventListener("blur", function() {
-      const v = campo.value.trim();
-      if (!v) return;
-      const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-      if (!m) { alert("Data inválida. Use DD/MM/AAAA."); campo.focus(); }
-    });
-  });
-});
-</script>
+</form>
 {% endblock %}

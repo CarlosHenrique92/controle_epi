@@ -12,12 +12,11 @@
       <div class="brand"><span class="dot"></span> EPI • Baixa Automática</div>
       <div class="menu">
         <a href="{{ url_for('baixa_automatica') }}" class="{% if request.path=='/' %}active{% endif %}">Baixa</a>
-        <a href="{{ url_for('novo_item') }}" class="{% if '/novo' in request.path %}active{% endif %}">Cadastro </a>
+        <a href="{{ url_for('novo_item') }}" class="{% if '/novo' in request.path %}active{% endif %}">Cadastro</a>
         <a href="{{ url_for('repor') }}" class="{% if '/repor' in request.path %}active{% endif %}">Reposição</a>
         <a href="{{ url_for('itens_lista') }}" class="{% if '/itens' in request.path %}active{% endif %}">Gerenciar estoque</a>
         <a href="{{ url_for('relatorios') }}" class="{% if '/relatorios' in request.path %}active{% endif %}">Relatórios</a>
-
-    </div>
+      </div>
     </div>
   </nav>
 
@@ -26,5 +25,8 @@
       {% block content %}{% endblock %}
     </div>
   </div>
+
+  {# bloco opcional para scripts das páginas #}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

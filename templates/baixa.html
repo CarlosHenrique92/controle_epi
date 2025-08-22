@@ -1,40 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Baixa automática{% endblock %}
+
 {% block content %}
 <h1>Baixa automática</h1>
-<p class="muted">Bipe o código do EPI. Cada bip = baixa de 1 unidade. O destinatário fica fixo até você trocar.</p>
+<p class="page-sub muted">Bipe o código do EPI. Cada bip = baixa de 1 unidade.</p>
 
 {% if ok and msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
 {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
 
-<form method="POST" class="form" id="form-baixa">
-  <div class="form-row">
-    <div class="field">
-      <label>Destinatário</label>
-      <input type="text" id="destinatario" name="destinatario"
-             value="{{ destinatario_atual }}" placeholder="Quem recebe" required>
+<form method="POST" id="form-baixa" class="form-novo" autocomplete="off">
+  <div class="form-line">
+    <div>
+      <label for="destinatario" style="font-size:16px; font-weight:600; color:#111827;">
+      Destinatário
+    </label>
+      <input class="input" id="destinatario" name="destinatario"
+             value="{{ destinatario_atual }}" required>
     </div>
-    <div class="field" style="min-width:260px;">
-      <label>Código do item</label>
-      <input type="text" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
+    <div>
+      <label for="destinatario" style="font-size:16px; font-weight:600; color:#111827;">
+      Código do item
+    </label>
+      <input class="input" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
     </div>
-    <button type="submit" class="btn">Registrar</button>
-    <button type="button" class="btn secondary" id="btn-relatorio-hoje">Relatório de hoje</button>
+    <div></div> <!-- slot vazio para manter 3 colunas de campos -->
+    <div class="form-actions">
+      <button class="btn primary" type="submit">Registrar</button>
+      <button class="btn outline" type="button" id="btn-relatorio-hoje">Relatório de hoje</button>
+    </div>
   </div>
 </form>
 
-<h2>Estoque atual</h2>
+<h2 style="margin-top:18px">Estoque atual</h2>
 <table class="table">
-  <thead><tr><th>Item</th><th>Código</th><th>Saldo</th></tr></thead>
+  <thead>
+    <tr><th>Item</th><th>Código</th><th>Saldo</th></tr>
+  </thead>
   <tbody>
     {% for item in itens %}
-      <tr><td>{{ item.nome }}</td><td class="small">{{ item.codigo }}</td><td>{{ item.saldo }}</td></tr>
+    <tr>
+      <td>{{ item.nome }}</td>
+      <td class="small">{{ item.codigo }}</td>
+      <td>{{ item.saldo }}</td>
+    </tr>
     {% endfor %}
+    {% if itens|length == 0 %}
+    <tr><td colspan="3">Nenhum item cadastrado.</td></tr>
+    {% endif %}
   </tbody>
 </table>
+{% endblock %}
 
+{% block scripts %}
 <script>
-  function hojeBR(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
+  function hojeBR(){
+    const d=new Date();
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
   document.getElementById('btn-relatorio-hoje').addEventListener('click', function(){
     const dest = document.getElementById('destinatario').value.trim();
     if(!dest){ alert('Informe o destinatário primeiro.'); return; }

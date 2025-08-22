@@ -4,8 +4,10 @@ from datetime import datetime
 import os
 from io import BytesIO
 from openpyxl import Workbook
-from barcode import Code128
+from barcode import Code39
 from barcode.writer import ImageWriter
+import barcode
+
 
 app = Flask(__name__)
 
@@ -18,9 +20,7 @@ def get_db_connection():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
-
 def init_db():
-    # Usa with para garantir que a conexão só feche depois de tudo criado
     with get_db_connection() as conn:
         cur = conn.cursor()
 
@@ -65,12 +65,10 @@ def init_db():
 
         conn.commit()
 
-
 def proximo_numero_etiqueta(conn) -> int:
     cur = conn.cursor()
     cur.execute("SELECT COALESCE(MAX(numero_etiqueta), 0) + 1 FROM etiquetas")
     return cur.fetchone()[0]
-
 
 def gerar_codigo_se_vazio(conn, codigo_informado: str) -> str:
     """Se vazio, cria código interno sequencial EPI000001, EPI000002..."""
@@ -82,15 +80,41 @@ def gerar_codigo_se_vazio(conn, codigo_informado: str) -> str:
     prox = cur.fetchone()["prox"]
     return f"EPI{prox:06d}"
 
-
-def salvar_barcode_png(codigo: str) -> str:
-    """Gera Code128 PNG em static/barcodes/{codigo}.png (se não existir) e retorna o path final."""
-    filename_sem_ext = os.path.join(BARCODE_DIR, codigo)  # sem .png
+def salvar_barcode_png(
+    codigo: str,
+    *,
+    module_width: float = 0.15,
+    module_height: float = 8.0,
+    font_size: int = 6,
+    text_distance: float = 0.8,
+    quiet_zone: float = 1.0,
+    write_text: bool = False,   # <<< DESLIGA texto na imagem
+    force: bool = False
+) -> str:
+    filename_sem_ext = os.path.join(BARCODE_DIR, codigo)
     path_png = f"{filename_sem_ext}.png"
-    if not os.path.exists(path_png):
-        b = Code128(codigo, writer=ImageWriter())
-        # save() cria {codigo}.png
-        b.save(filename_sem_ext)
+
+    if not force and os.path.exists(path_png):
+        return path_png
+
+    try:
+        if os.path.exists(path_png):
+            os.remove(path_png)
+    except Exception:
+        pass
+
+    writer = ImageWriter()
+    options = {
+        "module_width": module_width,
+        "module_height": module_height,
+        "font_size": font_size,
+        "text_distance": text_distance,
+        "quiet_zone": quiet_zone,
+        "write_text": write_text,   # <<< aqui
+    }
+
+    b = Code39(codigo, writer=writer, add_checksum=False)
+    b.save(filename_sem_ext, options=options)
     return path_png
 
 
@@ -132,13 +156,11 @@ def buscar_movimentacoes(destinatario=None, data_ini=None, data_fim=None):
     conn.close()
     return rows
 
-
 # --- util: converte 'DD/MM/AAAA' -> 'AAAA-MM-DD' (ou retorna '' se vazio/invalid) ---
 def br_to_iso(d: str) -> str:
     d = (d or "").strip()
     if not d:
         return ""
-    # aceita separador / ou -
     d = d.replace("-", "/")
     try:
         dd, mm, yy = d.split("/")
@@ -148,14 +170,13 @@ def br_to_iso(d: str) -> str:
         pass
     return ""  # se inválida, não aplica filtro
 
-
 # ----------------- Tela de BAIXA automática -----------------
 @app.route("/", methods=["GET", "POST"])
 def baixa_automatica():
     """
     GET: exibe estoque e formulário de baixa (destinatário + código).
     POST: baixa 1 un. do item (pelo código) e registra movimentação.
-    Também mantém o destinatário em cookie por 30 dias.
+    Mantém o destinatário em cookie por 30 dias.
     """
     if request.method == "POST":
         codigo = (request.form.get("codigo") or "").strip()
@@ -206,7 +227,6 @@ def baixa_automatica():
     msg = request.args.get("msg", "")
     erro = request.args.get("erro", "")
 
-    # Envie para o template: itens + destinatário atual + mensagem/erro
     return render_template(
         "baixa.html",
         itens=itens,
@@ -216,8 +236,7 @@ def baixa_automatica():
         erro=erro
     )
 
-
-# ----------------- NOVO: Cadastrar NOVO item -----------------
+# ----------------- Cadastrar NOVO item -----------------
 @app.route("/novo", methods=["GET", "POST"])
 def novo_item():
     """
@@ -261,7 +280,7 @@ def novo_item():
         conn.close()
 
         # Gera etiqueta
-        salvar_barcode_png(codigo)
+        salvar_barcode_png(codigo, force=True)
         mensagem = f"Item cadastrado: {nome} (cód. {codigo}), saldo {saldo}."
         etiqueta_codigo = codigo
 
@@ -269,8 +288,7 @@ def novo_item():
 
     return render_template("novo.html", mensagem=mensagem, etiqueta_codigo=etiqueta_codigo)
 
-
-# ----------------- NOVO: Reposição em LISTA -----------------
+# ----------------- Reposição em LISTA -----------------
 @app.route("/repor", methods=["GET", "POST"])
 def repor():
     """
@@ -325,7 +343,6 @@ def repor():
     conn.close()
     return render_template("repor.html", itens=itens, q=q)
 
-
 # ----------------- LISTA DE ITENS (gerenciar) -----------------
 @app.route("/itens")
 def itens_lista():
@@ -335,7 +352,6 @@ def itens_lista():
     itens = cur.fetchall()
     conn.close()
     return render_template("itens.html", itens=itens)
-
 
 # ----------------- EDITAR ITEM -----------------
 @app.route("/editar/<int:item_id>", methods=["GET", "POST"])
@@ -400,7 +416,7 @@ def editar_item(item_id):
                     os.remove(antigo_png)
                 except Exception:
                     pass
-            salvar_barcode_png(codigo)
+            salvar_barcode_png(codigo, force=True)
 
         return redirect(url_for("itens_lista"))
 
@@ -408,13 +424,12 @@ def editar_item(item_id):
     conn.close()
     return render_template("editar.html", item=item, erro=None)
 
-
 # ----------------- EXCLUIR ITEM -----------------
 @app.route("/excluir/<int:item_id>", methods=["GET", "POST"])
 def excluir_item(item_id):
     """
     Exclui item com confirmação.
-    - Agora remove também todas as movimentações vinculadas (ON DELETE CASCADE).
+    - Remove também todas as movimentações vinculadas (ON DELETE CASCADE).
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -445,7 +460,6 @@ def excluir_item(item_id):
 
     conn.close()
     return render_template("excluir.html", item=item, erro=None)
-
 
 # ----------------- RELATORIOS-----------------
 @app.route("/relatorios", methods=["GET"])
@@ -480,7 +494,6 @@ def relatorios():
         destinatarios_unicos=destinatarios_unicos
     )
 
-
 # ----------------- RELATORIOS/EXPORT-----------------
 @app.route("/relatorios/export", methods=["GET"])
 def relatorios_export():
@@ -510,7 +523,6 @@ def relatorios_export():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-
 # ----------------- Etiqueta para impressão -----------------
 @app.route("/etiqueta/<codigo>")
 def etiqueta(codigo):
@@ -527,7 +539,6 @@ def etiqueta(codigo):
 
     salvar_barcode_png(codigo)  # garante que o PNG exista
     return render_template("etiqueta.html", codigo=codigo, nome=nome)
-
 
 # --- Escolher/guardar destinatário no cookie (uma vez) ---
 @app.route("/destinatario", methods=["GET", "POST"])
@@ -549,57 +560,9 @@ def escolher_destinatario():
     ok = request.args.get("ok") == "1"
     return render_template("set_destinatario.html", atual=atual, ok=ok, erro=None)
 
-
-# --- Baixa via link (para usar com o app leitor) ---
-@app.route("/baixa", methods=["GET"])
-def baixa_via_binary_eye():
-    """
-    Dá baixa de 1 unidade no item com base no código enviado por GET.
-    Exemplo de uso no Binary Eye:
-    http://10.1.1.63:5000/baixa?codigo=%CODE%
-    """
-    codigo = (request.args.get("codigo") or "").strip()
-
-    if not codigo:
-        return "<h3>Erro: código não informado.</h3>", 400
-
-    # Aqui você pode colocar um destinatário fixo ou buscar de outra forma
-    destinatario = request.cookies.get("destinatario", "Sem nome")
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM itens WHERE codigo = ?", (codigo,))
-    item = cur.fetchone()
-
-    if not item:
-        conn.close()
-        return f"<h3>Item com código {codigo} não encontrado.</h3>", 404
-
-    # Atualiza saldo
-    novo_saldo = max(0, item["saldo"] - 1)
-    cur.execute("UPDATE itens SET saldo = ? WHERE id = ?", (novo_saldo, item["id"]))
-
-    # Registra movimentação
-    cur.execute("""
-        INSERT INTO movimentacoes (item_id, quantidade, destinatario, data)
-        VALUES (?, ?, ?, ?)
-    """, (item["id"], 1, destinatario, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-    conn.commit()
-    conn.close()
-
-    return f"""
-    <h3>✅ Baixa realizada:</h3>
-    <p><b>{item['nome']}</b> (-1) para {destinatario}</p>
-    <p>Saldo atual: {novo_saldo}</p>
-    <meta http-equiv="refresh" content="1; url=/">
-    """, 200
-
-
 @app.route("/ping")
 def ping():
     return "pong", 200
-
 
 # -------- Enfileirar etiqueta (para imprimir depois) ----------
 @app.route("/etiquetas/enfileirar", methods=["POST"])
@@ -635,7 +598,7 @@ def etiquetas_enfileirar():
         conn.commit()
 
         # Garante que o PNG existe
-        salvar_barcode_png(codigo)
+        salvar_barcode_png(codigo, force=True)
 
         return {"ok": True, "id": cur.lastrowid, "numero_etiqueta": numero, "codigo": codigo, "nome": nome}
     except Exception as e:
@@ -643,7 +606,6 @@ def etiquetas_enfileirar():
         return {"ok": False, "msg": f"Erro: {e}"}, 500
     finally:
         conn.close()
-
 
 # -------- Lista de etiquetas pendentes ----------
 @app.route("/etiquetas/pendentes")
@@ -658,7 +620,6 @@ def etiquetas_pendentes():
     rows = cur.fetchall()
     conn.close()
     return render_template("etiquetas_pendentes.html", rows=rows)
-
 
 # -------- Página de impressão (selecionadas ou todas pendentes) ----------
 @app.route("/etiquetas/print")
@@ -687,10 +648,9 @@ def etiquetas_print():
 
     # Garante PNG de todas antes de renderizar
     for e in etiquetas:
-        salvar_barcode_png(e["codigo"])
+        salvar_barcode_png(e["codigo"], force=True)
 
     return render_template("etiquetas_print.html", etiquetas=etiquetas)
-
 
 # -------- Marcar selecionadas como impressas ----------
 @app.route("/etiquetas/marcar_impresso", methods=["POST"])
@@ -716,6 +676,7 @@ def etiquetas_marcar_impresso():
         return {"ok": False, "msg": f"Erro: {e}"}, 500
     finally:
         conn.close()
+
 #-------------reimprimir---------
 @app.route("/etiquetas/historico")
 def etiquetas_historico():
@@ -734,3 +695,8 @@ def etiquetas_historico():
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=5000, debug=False)
+
+
+#git add .
+#git commit -m "Sistema configurado com layout e etiquetas ok"
+#git push

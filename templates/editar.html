@@ -1,33 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Editar item{% endblock %}
+
 {% block content %}
 <h1>Editar item</h1>
-<p class="muted">Altere nome, código e saldo manualmente. O código precisa ser único.</p>
+<p class="page-sub muted">Atualize os dados do EPI e salve.</p>
 
-{% if erro %}<div class="notice bad"><strong>{{ erro }}</strong></div>{% endif %}
+{% if erro %}
+  <div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
 {% if not item %}
-  <div class="notice bad">Item não encontrado.</div>
-  <div class="actions" style="margin-top:10px;">
-    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Voltar para itens</a>
+  <div class="alert alert-danger">Item não encontrado.</div>
+  <div class="actions">
+    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Voltar</a>
   </div>
 {% else %}
-<form method="POST">
-  <div class="form-row">
-    <div class="field">
-      <label>Nome</label>
-      <input type="text" name="nome" value="{{ item.nome }}" required>
+  <form method="POST" class="form-novo" autocomplete="off">
+    <div class="form-line">
+      <div>
+        <label for="nome">Nome</label>
+        <input class="input" id="nome" name="nome" value="{{ item.nome }}" required>
+      </div>
+      <div>
+        <label for="codigo">Código</label>
+        <input class="input" id="codigo" name="codigo" value="{{ item.codigo }}" required>
+      </div>
+      <div>
+        <label for="saldo">Saldo</label>
+        <input class="input" id="saldo" type="number" name="saldo" min="0" value="{{ item.saldo }}" required>
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" type="submit">Salvar</button>
+        <a class="btn secondary" href="{{ url_for('itens_lista') }}">Voltar</a>
+      </div>
     </div>
-    <div class="field">
-      <label>Código (único)</label>
-      <input type="text" name="codigo" value="{{ item.codigo }}" required>
-    </div>
-    <div class="field" style="max-width:180px;">
-      <label>Saldo</label>
-      <input type="number" name="saldo" min="0" value="{{ item.saldo }}" required>
-    </div>
-    <button type="submit" class="btn">Salvar alterações</button>
-    <a class="btn secondary" href="{{ url_for('itens_lista') }}">Cancelar</a>
-  </div>
-</form>
+  </form>
 {% endif %}
 {% endblock %}

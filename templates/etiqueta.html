@@ -9,7 +9,7 @@
     body {
       margin: 0;
       padding: 0;
-      background: #ffffff;
+      background: #fff;
       font-family: Arial, sans-serif;
       display: flex;
       align-items: center;
@@ -17,36 +17,44 @@
       height: 100vh;
       color: #111827;
     }
+
     /* Caixa da etiqueta */
     .etiqueta {
-      width: 200px; /* ~2cm largura */
+      width: 200px;   /* largura da etiqueta */
       padding: 8px;
       border: 1px solid #d1d5db;
       border-radius: 6px;
       text-align: center;
-      background: #ffffff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
+
     .nome {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       word-break: break-word;
     }
+
     img {
       max-width: 100%;
       height: auto;
     }
+
     .codigo {
-      font-size: 13px;
-      margin-top: 4px;
+      font-size: 12px;
+      margin-top: 2px;
       color: #374151;
+      letter-spacing: 1px;
     }
+
     /* Esconde botões na impressão */
     @media print {
       #print, #back { display: none !important; }
+      body { box-shadow: none; }
     }
-    /* Botões na visualização normal */
+
+    /* Botões de ação */
     .actions {
       position: fixed;
       top: 10px;
@@ -84,4 +92,3 @@
 
 </body>
 </html>
-
