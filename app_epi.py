@@ -836,5 +836,5 @@ if __name__ == "__main__":
 
 
 # git add .
-# git commit -m "Sistema configurado com layout e etiquetas ok"
+# git commit -m "Sistema configurado com senhas e relatorios"
 # git push
