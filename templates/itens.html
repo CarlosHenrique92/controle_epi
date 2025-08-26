@@ -3,27 +3,33 @@
 
 {% block content %}
 <h1>Itens de EPI</h1>
-<p class="muted">Edite, exclua ou gere a etiqueta rápida do item.</p>
+<p class="page-sub muted">Edite, exclua ou gere a etiqueta rápida do item.</p>
 
-<table class="table table-clean">
+<table class="table table-itens">
+  <!-- Larguras e alinhamento estáveis -->
+  <colgroup>
+    <col class="col-item">
+    <col class="col-codigo">
+    <col class="col-saldo">
+    <col class="col-acoes">
+  </colgroup>
+
   <thead>
     <tr>
       <th>Item</th>
       <th>Código</th>
       <th>Saldo</th>
-      <th class="col-acoes">Ações</th>
+      <th>Ações</th>
     </tr>
   </thead>
+
   <tbody>
     {% for it in itens %}
     <tr>
       <td class="nome-item">{{ it.nome }}</td>
-      <td class="codigo-item">{{ it.codigo }}</td>
+      <td class="small codigo-item">{{ it.codigo }}</td>
+      <td class="saldo">{{ it.saldo }}</td>
       <td>
-        <td>{{ it.saldo }}</td>
-
-      </td>
-      <td class="acoes">
         <div class="actions-inline">
           <a class="btn outline" href="{{ url_for('editar_item', item_id=it.id) }}">Editar</a>
           <a class="btn danger outline" href="{{ url_for('excluir_item', item_id=it.id) }}">Excluir</a>
@@ -32,8 +38,11 @@
       </td>
     </tr>
     {% endfor %}
+
     {% if itens|length == 0 %}
-    <tr><td colspan="4">Nenhum item cadastrado.</td></tr>
+    <tr>
+      <td colspan="4">Nenhum item cadastrado.</td>
+    </tr>
     {% endif %}
   </tbody>
 </table>

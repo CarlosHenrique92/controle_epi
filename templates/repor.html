@@ -1,39 +1,61 @@
 {% extends "base.html" %}
 {% block title %}Reposição{% endblock %}
+
 {% block content %}
 <h1>Reposição de estoque</h1>
-<p class="muted">Pesquise pelo nome ou código, informe apenas as quantidades que deseja adicionar e clique em aplicar.</p>
+<p class="page-sub muted">Procure o item e reponha pelo botão de salvar em cada linha. Você também pode usar o modo em lote (antigo) se preferir.</p>
 
-<form method="GET" class="form-row" style="margin-bottom:10px;">
-  <div class="field">
-    <label>Buscar</label>
-    <input type="text" name="q" value="{{ q or '' }}" placeholder="Ex.: luva, capacete, EPI000012">
+<!-- Busca -->
+<form method="GET" class="form-line" id="form-repor-busca" autocomplete="off">
+  <div>
+    <label for="q">Buscar (nome ou código)</label>
+    <input class="input" type="text" id="q" name="q" value="{{ q or '' }}" placeholder="Ex.: capacete, EPI000123">
   </div>
-  <button class="btn secondary" type="submit">Buscar</button>
-  {% if q %}<a class="btn secondary" href="{{ url_for('repor') }}">Limpar</a>{% endif %}
+  <div class="form-actions">
+    <button class="btn outline" type="submit">Filtrar</button>
+  </div>
 </form>
 
-<form method="POST">
-  <table class="table">
-    <thead>
-      <tr><th>Item</th><th>Código</th><th>Saldo atual</th><th>Adicionar</th></tr>
-    </thead>
-    <tbody>
-      {% for it in itens %}
-      <tr>
-        <td>{{ it.nome }}</td>
-        <td class="small">{{ it.codigo }}</td>
-        <td>{{ it.saldo }}</td>
-        <td><input type="number" name="qtd_{{ it.id }}" min="0" value="0"></td>
-      </tr>
-      {% endfor %}
-      {% if itens|length == 0 %}
-      <tr><td colspan="4">Nenhum item encontrado para "{{ q }}".</td></tr>
-      {% endif %}
-    </tbody>
-  </table>
-  <div class="actions" style="margin-top:10px;">
-    <button class="btn" type="submit">Aplicar reposição</button>
+{% if resumo %}
+  <div class="alert alert-success">{{ resumo }}</div>
+{% endif %}
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Código</th>
+      <th style="text-align:right">Saldo</th>
+      <th style="width: 220px; text-align:right">Repor</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for it in itens %}
+    <tr>
+      <td class="nome-item">{{ it.nome }}</td>
+      <td class="small codigo-item">{{ it.codigo }}</td>
+      <td style="text-align:right">{{ it.saldo }}</td>
+      <td style="text-align:right">
+        <!-- Mini-form por linha -->
+        <form method="POST" class="actions-inline" style="justify-content:flex-end;">
+          <input type="hidden" name="item_id" value="{{ it.id }}">
+          <input type="hidden" name="q" value="{{ q or '' }}">
+          <input class="input" type="number" name="qtd" min="1" step="1" placeholder="0" style="width: 90px;">
+          <button class="btn primary" type="submit">Salvar</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if itens|length == 0 %}
+    <tr><td colspan="4">Nenhum item encontrado.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+
+<form method="POST" class="form-line" style="margin-top:10px;">
+  <div class="form-actions" style="justify-content:flex-end;">
+    <button class="btn outline" type="submit">Aplicar alterações (modo em lote)</button>
   </div>
 </form>
 {% endblock %}

@@ -148,3 +148,40 @@ label { font-size:12px; color: var(--muted); margin-bottom:6px; display:block; }
 #form-repor .input, #form-repor .btn { height:42px; line-height:42px; box-sizing:border-box; }
 #form-repor .btn { padding:0 16px; }
 #form-repor .form-line { grid-template-columns: 1fr 1fr auto auto; }
+
+/* Alinhamento e larguras da tabela de Gerenciar estoque */
+.table-itens th.col-codigo, .table-itens td.col-codigo { width: 140px; }
+.table-itens th.col-saldo,  .table-itens td.col-saldo  { width: 80px; text-align: right; }
+.table-itens th.col-acoes,  .table-itens td.col-acoes  { width: 320px; text-align: right; }
+
+/* Garante que a última coluna não herde alinhamento global indesejado */
+.table-itens td:last-child { text-align: right; }
+
+/* Botões alinhados à direita dentro da célula de ações */
+.table-itens .actions-inline { justify-content: flex-end; }
+
+/* === Alinhamento fino: tabela de Gerenciar estoque === */
+.table-itens { table-layout: fixed; }                  /* evita “pular” */
+.table-itens .col-item   { width: auto; }              /* ocupa o restante */
+.table-itens .col-codigo { width: 140px; }
+.table-itens .col-saldo  { width: 80px; }
+.table-itens .col-acoes  { width: 300px; }             /* ajuste fino se quiser */
+
+/* Alinhamentos somente aqui */
+.table-itens td.saldo,
+.table-itens th:nth-child(3) { text-align: right; }    /* saldo à direita */
+.table-itens th:nth-child(2) { text-align: left; }     /* código à esquerda (legível) */
+.table-itens th:nth-child(4),
+.table-itens td:nth-child(4) { text-align: right; }    /* ações à direita */
+
+/* Botões alinhados à direita dentro da célula de ações */
+.table-itens .actions-inline { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+
+/* Cabeçalho "Ações" centralizado */
+.table-itens th.col-acoes {
+  text-align: center;
+}
+
+
+
+

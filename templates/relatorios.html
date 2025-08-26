@@ -1,49 +1,83 @@
 {% extends "base.html" %}
-{% block title %}Reposição{% endblock %}
+{% block title %}Relatórios{% endblock %}
 
 {% block content %}
-<h1>Reposição</h1>
-<p class="page-sub muted">Pesquise pelo item e informe as quantidades para repor o estoque.</p>
+<h1>Relatórios</h1>
+<p class="page-sub muted">Filtre por destinatário e/ou intervalo de datas para ver as saídas de EPI.</p>
 
-<form method="GET" id="form-repor" class="form-novo" autocomplete="off">
-  <div class="form-line">
-    <div>
-      <label for="q">Buscar (nome ou código)</label>
-      <input class="input" id="q" name="q" value="{{ q or '' }}" placeholder="Ex.: LUVA, EPI000123">
-    </div>
-    <div></div><div></div>
-    <div class="form-actions">
-      <button class="btn outline" type="submit">Buscar</button>
-      <a class="btn secondary" href="{{ url_for('repor') }}">Limpar</a>
-    </div>
+<form method="GET" class="form-grid" autocomplete="off" id="form-relatorios">
+  <div>
+    <label for="destinatario">Destinatário</label>
+    <!-- Input com sugestões (datalist) -->
+    <input class="input" id="destinatario" name="destinatario"
+           value="{{ destinatario or '' }}" list="lista-dest"
+           placeholder="Ex.: João Silva">
+    <datalist id="lista-dest">
+      {% for d in destinatarios_unicos %}
+        <option value="{{ d }}">{{ d }}</option>
+      {% endfor %}
+    </datalist>
+  </div>
+
+  <div>
+    <label for="data_ini">Data inicial</label>
+    <input class="input" id="data_ini" name="data_ini"
+           value="{{ data_ini or '' }}" placeholder="DD/MM/AAAA">
+  </div>
+
+  <div>
+    <label for="data_fim">Data final</label>
+    <input class="input" id="data_fim" name="data_fim"
+           value="{{ data_fim or '' }}" placeholder="DD/MM/AAAA">
+  </div>
+
+  <div class="actions-row">
+    <button class="btn primary" type="submit">Filtrar</button>
+    <a class="btn secondary" href="{{ url_for('relatorios') }}">Limpar</a>
+
+    {# Exporta Excel com os mesmos filtros #}
+    <a class="btn outline"
+       href="{{ url_for('relatorios_export') }}?destinatario={{ destinatario|urlencode }}&data_ini={{ data_ini|urlencode }}&data_fim={{ data_fim|urlencode }}">
+       Exportar Excel
+    </a>
   </div>
 </form>
 
-<form method="POST" id="form-repor" class="form-novo" style="margin-top:14px">
-  <table class="table">
-    <thead>
-      <tr><th>Item</th><th>Código</th><th>Saldo</th><th style="width:160px;text-align:right">Repor</th></tr>
-    </thead>
-    <tbody>
-      {% for it in itens %}
+<h2 style="margin-top:18px">Movimentações</h2>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Data/Hora</th>
+      <th>Destinatário</th>
+      <th>Item</th>
+      <th>Código</th>
+      <th>Qtd</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if movimentos and movimentos|length > 0 %}
+      {% for mv in movimentos %}
       <tr>
-        <td>{{ it.nome }}</td>
-        <td class="small">{{ it.codigo }}</td>
-        <td>{{ it.saldo }}</td>
-        <td style="text-align:right">
-          <input class="input" type="number" name="qtd_{{ it.id }}" min="0" value="0" style="max-width:120px; display:inline-block;">
+        <td class="small">
+          {{ mv.data[8:10] }}/{{ mv.data[5:7] }}/{{ mv.data[0:4] }} {{ mv.data[11:] }}
         </td>
+        <td>{{ mv.destinatario }}</td>
+        <td>{{ mv.item_nome }}</td>
+        <td class="small">{{ mv.item_codigo }}</td>
+        <td>{{ mv.quantidade }}</td>
       </tr>
       {% endfor %}
-      {% if itens|length == 0 %}
-      <tr><td colspan="4">Nenhum item encontrado.</td></tr>
-      {% endif %}
-    </tbody>
-  </table>
-
-  <div class="form-actions" style="margin-top:10px">
-    <button class="btn primary" type="submit">Aplicar reposição</button>
-    <a class="btn secondary" href="{{ url_for('repor') }}">Cancelar</a>
-  </div>
-</form>
+    {% else %}
+      <tr>
+        <td colspan="5">
+          {% if destinatario or data_ini or data_fim %}
+            Nenhuma movimentação encontrada com os filtros informados.
+          {% else %}
+            Informe filtros acima e clique em <b>Filtrar</b>.
+          {% endif %}
+        </td>
+      </tr>
+    {% endif %}
+  </tbody>
+</table>
 {% endblock %}

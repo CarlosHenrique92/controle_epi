@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, make_response
+from flask import Flask, render_template, request, redirect, url_for, send_file, make_response, session, abort, flash
 import sqlite3
 from datetime import datetime
 import os
@@ -7,9 +7,41 @@ from openpyxl import Workbook
 from barcode import Code39
 from barcode.writer import ImageWriter
 import barcode
-
+from functools import wraps
+import secrets
 
 app = Flask(__name__)
+
+# sessão e credenciais fixas
+app.secret_key = "troque-esta-string-por-uma-aleatoria"  # ex.: secrets.token_hex(16)
+ADMIN_USER = "admin"
+ADMIN_PASS = "Geo@#2025"
+
+def login_required(view):
+    """Exige login para qualquer método (GET/POST). Útil p/ editar/excluir."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("user"):
+            session["next_url"] = request.full_path if request.query_string else request.path
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+def login_required_for(methods=("POST",)):
+    """
+    Exige login apenas se a requisição for de um dos métodos informados.
+    Ex.: @login_required_for(("POST",)) deixa GET público e protege POST.
+    """
+    methods = set(m.upper() for m in methods)
+    def deco(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if request.method.upper() in methods and not session.get("user"):
+                session["next_url"] = request.full_path if request.query_string else request.path
+                return redirect(url_for("login"))
+            return view(*args, **kwargs)
+        return wrapped
+    return deco
 
 BARCODE_DIR = os.path.join("static", "barcodes")
 os.makedirs(BARCODE_DIR, exist_ok=True)
@@ -172,6 +204,7 @@ def br_to_iso(d: str) -> str:
 
 # ----------------- Tela de BAIXA automática -----------------
 @app.route("/", methods=["GET", "POST"])
+@login_required_for(methods=("POST",))
 def baixa_automatica():
     """
     GET: exibe estoque e formulário de baixa (destinatário + código).
@@ -235,9 +268,32 @@ def baixa_automatica():
         msg=msg,
         erro=erro
     )
+#-------------login------------------
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # Se já estiver logado, manda para a página inicial
+    if session.get("user"):
+        return redirect(url_for("baixa_automatica"))
+
+    erro = None
+    if request.method == "POST":
+        pwd = (request.form.get("senha") or "").strip()
+        if pwd == ADMIN_PASS:  # usa a senha fixa já definida no topo do app
+            session["user"] = "admin"  # usuário simbólico
+            next_url = session.pop("next_url", None) or url_for("baixa_automatica")
+            return redirect(next_url)
+        erro = "Senha inválida."
+    return render_template("login.html", erro=erro)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 # ----------------- Cadastrar NOVO item -----------------
 @app.route("/novo", methods=["GET", "POST"])
+@login_required_for(methods=("POST",))
 def novo_item():
     """
     Cadastra um NOVO EPI:
@@ -290,22 +346,72 @@ def novo_item():
 
 # ----------------- Reposição em LISTA -----------------
 @app.route("/repor", methods=["GET", "POST"])
+@login_required_for(methods=("POST",))
 def repor():
     """
     Reposição por LISTA com BUSCA:
     - GET: aceita parâmetro q (nome/código) e filtra a tabela.
-    - POST: soma as quantidades > 0 e mostra resumo.
+    - POST:
+        a) Se vier item_id e qtd -> atualiza apenas aquele item (botão por linha)
+        b) Caso contrário -> modo antigo em lote (varre todos os campos qtd_<id>)
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # ----- POST: MODO LINHA-A-LINHA -----
+    if request.method == "POST" and request.form.get("item_id"):
+        try:
+            item_id = int(request.form.get("item_id"))
+        except ValueError:
+            item_id = 0
+        try:
+            qtd = int((request.form.get("qtd") or "0").strip())
+        except ValueError:
+            qtd = 0
+
+        # busca item
+        cur.execute("SELECT id, nome, saldo, codigo FROM itens WHERE id = ?", (item_id,))
+        it = cur.fetchone()
+        if not it:
+            conn.close()
+            # volta com erro simples
+            q = (request.form.get("q") or "").strip()
+            # recarrega lista
+            conn2 = get_db_connection(); cur2 = conn2.cursor()
+            if q:
+                like = f"%{q}%"
+                cur2.execute("""SELECT * FROM itens WHERE nome LIKE ? OR codigo LIKE ? ORDER BY nome""", (like, like))
+            else:
+                cur2.execute("SELECT * FROM itens ORDER BY nome")
+            itens = cur2.fetchall(); conn2.close()
+            return render_template("repor.html", itens=itens, q=q, resumo="Item não encontrado.")
+
+        resumo = "Nenhuma quantidade informada."
+        if qtd > 0:
+            novo = it["saldo"] + qtd
+            cur.execute("UPDATE itens SET saldo = ? WHERE id = ?", (novo, it["id"]))
+            conn.commit()
+            resumo = f"{it['nome']} +{qtd} (→ {novo})"
+
+        # Após salvar 1 item, recarrega a lista (com o mesmo filtro q, se houver)
+        q = (request.form.get("q") or "").strip()
+        if q:
+            like = f"%{q}%"
+            cur.execute("""SELECT * FROM itens WHERE nome LIKE ? OR codigo LIKE ? ORDER BY nome""", (like, like))
+        else:
+            cur.execute("SELECT * FROM itens ORDER BY nome")
+        itens = cur.fetchall()
+        conn.close()
+        return render_template("repor.html", itens=itens, q=q, resumo=resumo)
+
+    # ----- POST: MODO EM LOTE (ANTIGO) -----
     if request.method == "POST":
         # Carrega todos para varrer os campos qtd_<id>
         cur.execute("SELECT id, nome, saldo FROM itens ORDER BY nome")
-        itens = cur.fetchall()
+        itens_all = cur.fetchall()
 
         alterados = []
-        for it in itens:
+        for it in itens_all:
             field = f"qtd_{it['id']}"
             qtd_str = request.form.get(field, "0").strip()
             if not qtd_str:
@@ -326,11 +432,10 @@ def repor():
         resumo = ", ".join([f"{nome} +{qtd} (→ {novo})" for (nome, qtd, novo) in alterados]) or "Nenhuma quantidade informada."
         return render_template("repor_resultado.html", resumo=resumo)
 
-    # GET → busca e lista
+    # ----- GET → busca e lista -----
     q = (request.args.get("q") or "").strip()
     if q:
         like = f"%{q}%"
-        # Filtra por nome OU código (case-insensitive simples)
         cur.execute("""
             SELECT * FROM itens
             WHERE nome LIKE ? OR codigo LIKE ?
@@ -343,8 +448,10 @@ def repor():
     conn.close()
     return render_template("repor.html", itens=itens, q=q)
 
+
 # ----------------- LISTA DE ITENS (gerenciar) -----------------
 @app.route("/itens")
+@login_required_for(methods=("POST",))
 def itens_lista():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -355,6 +462,7 @@ def itens_lista():
 
 # ----------------- EDITAR ITEM -----------------
 @app.route("/editar/<int:item_id>", methods=["GET", "POST"])
+@login_required
 def editar_item(item_id):
     """
     Edita nome, código e saldo manualmente.
@@ -426,6 +534,7 @@ def editar_item(item_id):
 
 # ----------------- EXCLUIR ITEM -----------------
 @app.route("/excluir/<int:item_id>", methods=["GET", "POST"])
+@login_required
 def excluir_item(item_id):
     """
     Exclui item com confirmação.
@@ -690,6 +799,35 @@ def etiquetas_historico():
     conn.close()
     return render_template("etiquetas_historico.html", rows=rows)
 
+#-------------EXPORTAR ESTOQUE ATUAL--------------
+@app.route("/estoque/export", methods=["GET"])
+def estoque_export():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT nome, saldo FROM itens ORDER BY nome")
+    rows = cur.fetchall()
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Estoque"
+    ws.append(["Item", "Saldo"])
+
+    for r in rows:
+        ws.append([r["nome"], r["saldo"]])
+
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    nome_arquivo = f"estoque_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(
+        bio,
+        as_attachment=True,
+        download_name=nome_arquivo,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 
 
 if __name__ == "__main__":
@@ -697,6 +835,6 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
 
 
-#git add .
-#git commit -m "Sistema configurado com layout e etiquetas ok"
-#git push
+# git add .
+# git commit -m "Sistema configurado com layout e etiquetas ok"
+# git push

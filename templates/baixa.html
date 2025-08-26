@@ -8,40 +8,44 @@
 {% if ok and msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
 {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
 
-<form method="POST" id="form-baixa" class="form-novo" autocomplete="off">
-  <div class="form-line">
-    <div>
-      <label for="destinatario" style="font-size:16px; font-weight:600; color:#111827;">
-      Destinatário
-    </label>
-      <input class="input" id="destinatario" name="destinatario"
-             value="{{ destinatario_atual }}" required>
-    </div>
-    <div>
-      <label for="destinatario" style="font-size:16px; font-weight:600; color:#111827;">
-      Código do item
-    </label>
-      <input class="input" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
-    </div>
-    <div></div> <!-- slot vazio para manter 3 colunas de campos -->
-    <div class="form-actions">
-      <button class="btn primary" type="submit">Registrar</button>
-      <button class="btn outline" type="button" id="btn-relatorio-hoje">Relatório de hoje</button>
-    </div>
+<!-- Linha do formulário -->
+<form method="POST" id="form-baixa" autocomplete="off" class="form-line">
+  <div>
+    <label for="destinatario">Destinatário</label>
+    <input class="input" id="destinatario" name="destinatario" value="{{ destinatario_atual }}" required>
+  </div>
+  <div>
+    <label for="codigo">Código do item</label>
+    <input class="input" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn primary" type="submit">Registrar</button>
+    <button class="btn outline" type="button" id="btn-relatorio-hoje">Relatório de hoje</button>
   </div>
 </form>
 
-<h2 style="margin-top:18px">Estoque atual</h2>
+<!-- Botão de exportar em cima do título -->
+<div class="stock-header">
+  <a class="btn outline" href="{{ url_for('estoque_export') }}">Exportar estoque (Excel)</a>
+</div>
+
+<h2>Estoque atual</h2>
+
 <table class="table">
   <thead>
-    <tr><th>Item</th><th>Código</th><th>Saldo</th></tr>
+    <tr>
+      <th>Item</th>
+      <th>Código</th>
+      <th style="text-align:right">Saldo</th>
+    </tr>
   </thead>
   <tbody>
     {% for item in itens %}
     <tr>
       <td>{{ item.nome }}</td>
       <td class="small">{{ item.codigo }}</td>
-      <td>{{ item.saldo }}</td>
+      <td style="text-align:right">{{ item.saldo }}</td>
     </tr>
     {% endfor %}
     {% if itens|length == 0 %}
@@ -52,17 +56,66 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  function hojeBR(){
-    const d=new Date();
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+<style>
+  /* Grid: 2 campos + coluna de ações */
+  .form-line{
+    display:grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+    margin-bottom: 10px;
   }
-  document.getElementById('btn-relatorio-hoje').addEventListener('click', function(){
-    const dest = document.getElementById('destinatario').value.trim();
-    if(!dest){ alert('Informe o destinatário primeiro.'); return; }
-    const p = new URLSearchParams({destinatario:dest, data_ini:hojeBR(), data_fim:hojeBR()});
-    window.open(`/relatorios?${p.toString()}`,'_blank');
+  .form-actions{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:flex-end;
+  }
+  /* Labels mais visíveis nesta página */
+  #form-baixa label{
+    font-size:13px;
+    color:#374151;
+    font-weight:600;
+    display:block;
+    margin-bottom:6px;
+  }
+  /* Botão Exportar acima, à esquerda */
+  .stock-header{
+    margin: 8px 0;
+    display:flex;
+    justify-content:flex-start;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnRelatorio = document.getElementById('btn-relatorio-hoje');
+    const inputDest = document.getElementById('destinatario');
+    const inputCod  = document.getElementById('codigo');
+
+    inputCod && inputCod.focus();
+
+    function hojeBR(){
+      const d = new Date();
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+
+    if (btnRelatorio) {
+      btnRelatorio.addEventListener('click', () => {
+        const dest = (inputDest?.value || '').trim();
+        if (!dest) {
+          alert('Informe o destinatário primeiro.');
+          inputDest?.focus();
+          return;
+        }
+        const params = new URLSearchParams({
+          destinatario: dest,
+          data_ini: hojeBR(),
+          data_fim: hojeBR()
+        });
+        window.location.href = `/relatorios?${params.toString()}`;
+      });
+    }
   });
-  window.addEventListener('load', ()=> document.getElementById('codigo')?.focus());
 </script>
 {% endblock %}
