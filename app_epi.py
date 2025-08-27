@@ -835,6 +835,6 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
 
 
-# git add .
-# git commit -m "Sistema configurado com senhas e relatorios"
-# git push
+#  git add .
+#  git commit -m "Sistema configurado com senhas e relatorios"
+#  git push
