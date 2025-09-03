@@ -3,31 +3,102 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}EPI{% endblock %}</title>
+  <title>{% block title %}EPI{% endblock %} • Geoambiente</title>
+
+  <!-- Favicon (ícone da aba) -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+
+  <!-- CSS principal -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+
+  <!-- Slot para CSS/HEAD específico de páginas -->
+  {% block extra_head %}
+  
+<style>
+  /* Última coluna acompanha as células numéricas */
+  .table th:last-child {
+    text-align: right;
+  }
+
+  /* Colunas de ações centralizadas (botões) */
+  .table th.col-acoes,
+  .table td.col-acoes {
+    text-align: center;
+  }
+</style>
+{% endblock %}
+
+  
+  <meta name="theme-color" content="#2563eb">
+  
 </head>
 <body>
+  <!-- Barra de navegação -->
   <nav class="nav">
-    <div class="wrap">
-      <div class="brand"><span class="dot"></span> EPI • Baixa Automática</div>
-      <div class="menu">
-        <a href="{{ url_for('baixa_automatica') }}" class="{% if request.path=='/' %}active{% endif %}">Baixa</a>
-        <a href="{{ url_for('novo_item') }}" class="{% if '/novo' in request.path %}active{% endif %}">Cadastro</a>
-        <a href="{{ url_for('repor') }}" class="{% if '/repor' in request.path %}active{% endif %}">Reposição</a>
-        <a href="{{ url_for('itens_lista') }}" class="{% if '/itens' in request.path %}active{% endif %}">Gerenciar estoque</a>
-        <a href="{{ url_for('relatorios') }}" class="{% if '/relatorios' in request.path %}active{% endif %}">Relatórios</a>
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <a class="brand" href="{{ url_for('baixa_automatica') }}" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Geoambiente" style="height:50px;">
+        <span style="font-weight:700;"></span>
+      </a>
+
+      <div class="menu" role="navigation" aria-label="Principal">
+        <a href="{{ url_for('baixa_automatica') }}"
+           class="{% if request.path=='/' %}active{% endif %}"
+           {% if request.path=='/' %}aria-current="page"{% endif %}>Baixa</a>
+
+        <a href="{{ url_for('novo_item') }}"
+           class="{% if '/novo' in request.path %}active{% endif %}"
+           {% if '/novo' in request.path %}aria-current="page"{% endif %}>Cadastro</a>
+
+        <a href="{{ url_for('repor') }}"
+           class="{% if '/repor' in request.path %}active{% endif %}"
+           {% if '/repor' in request.path %}aria-current="page"{% endif %}>Reposição</a>
+
+        <a href="{{ url_for('itens_lista') }}"
+           class="{% if '/itens' in request.path %}active{% endif %}"
+           {% if '/itens' in request.path %}aria-current="page"{% endif %}>Gerenciar estoque</a>
+
+        <a href="{{ url_for('relatorios') }}"
+           class="{% if '/relatorios' in request.path %}active{% endif %}"
+           {% if '/relatorios' in request.path %}aria-current="page"{% endif %}>Relatórios</a>
+      </div>
+
+      <!-- Ações do usuário -->
+      <div class="menu" style="gap:10px;">
+        {% if session.get('user') %}
+          <span class="small muted">Olá, {{ session.get('user') }}</span>
+          <a href="{{ url_for('logout') }}" class="btn outline">Sair</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="btn outline">Entrar</a>
+        {% endif %}
       </div>
     </div>
   </nav>
 
+  <!-- Container full-width -->
   <div class="container">
-    <div class="card">
-      {% block content %}{% endblock %}
-    </div>
+
+    <!-- Toolbar opcional por página (ex.: botões de ação no topo) -->
+    {% block toolbar %}{% endblock %}
+
+    <!-- Flash messages (suporta alert-success e alert-danger do seu CSS) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin:10px 0;">
+          {% for category, msg in messages %}
+            <div class="alert {% if category=='success' %}alert-success{% elif category=='danger' %}alert-danger{% else %}notice{% endif %}">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
   </div>
 
-  {# bloco opcional para scripts das páginas #}
+  <!-- Scripts por página -->
   {% block scripts %}{% endblock %}
 </body>
 </html>

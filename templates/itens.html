@@ -5,45 +5,82 @@
 <h1>Itens de EPI</h1>
 <p class="page-sub muted">Edite, exclua ou gere a etiqueta rápida do item.</p>
 
-<table class="table table-itens">
-  <!-- Larguras e alinhamento estáveis -->
-  <colgroup>
-    <col class="col-item">
-    <col class="col-codigo">
-    <col class="col-saldo">
-    <col class="col-acoes">
-  </colgroup>
+<!-- Barra de pesquisa -->
+<div class="table-toolbar column-left">
+  <div class="toolbar-search">
+    <input class="input" id="busca-itens" placeholder="🔍 Pesquisar item ou código…">
+  </div>
+</div>
 
+<table class="table" id="tabela-itens">
   <thead>
     <tr>
       <th>Item</th>
       <th>Código</th>
       <th>Saldo</th>
-      <th>Ações</th>
+      <th class="col-acoes">Ações</th>
     </tr>
   </thead>
-
   <tbody>
     {% for it in itens %}
     <tr>
-      <td class="nome-item">{{ it.nome }}</td>
-      <td class="small codigo-item">{{ it.codigo }}</td>
-      <td class="saldo">{{ it.saldo }}</td>
-      <td>
+      <td class="col-nome">{{ it.nome }}</td>
+      <td class="col-codigo small">{{ it.codigo }}</td>
+      <td class="col-saldo">{{ it.saldo }}</td>
+      <td class="acoes">
         <div class="actions-inline">
-          <a class="btn outline" href="{{ url_for('editar_item', item_id=it.id) }}">Editar</a>
-          <a class="btn danger outline" href="{{ url_for('excluir_item', item_id=it.id) }}">Excluir</a>
-          <a class="btn primary" target="_blank" href="{{ url_for('etiqueta', codigo=it.codigo) }}">Etiqueta</a>
+          <a class="btn secondary" href="{{ url_for('editar_item', item_id=it.id) }}">Editar</a>
+          <a class="btn danger" href="{{ url_for('excluir_item', item_id=it.id) }}">Excluir</a>
+          <a class="btn primary" target="_blank" href="{{ url_for('etiqueta', codigo=it.codigo) }}">Etiqueta rápida</a>
         </div>
       </td>
     </tr>
     {% endfor %}
-
     {% if itens|length == 0 %}
-    <tr>
-      <td colspan="4">Nenhum item cadastrado.</td>
-    </tr>
+    <tr><td colspan="4">Nenhum item cadastrado.</td></tr>
     {% endif %}
   </tbody>
 </table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Função de normalização (sem acentos e lower case)
+  const normalize = (s) => (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase();
+
+  const inputBusca = document.getElementById('busca-itens');
+  const tbody = document.querySelector('#tabela-itens tbody');
+
+  function aplicarFiltro(q){
+    const query = normalize(q);
+    let visiveis = 0;
+    tbody.querySelectorAll('tr').forEach(tr => {
+      if (tr.querySelector('.col-nome')) {
+        const nome = normalize(tr.querySelector('.col-nome').textContent);
+        const codigo = normalize(tr.querySelector('.col-codigo').textContent);
+        const ok = !query || nome.includes(query) || codigo.includes(query);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) visiveis++;
+      }
+    });
+
+    // mensagem quando nenhum resultado for encontrado
+    let noneRow = tbody.querySelector('.row-none');
+    if (!noneRow) {
+      noneRow = document.createElement('tr');
+      noneRow.className = 'row-none';
+      noneRow.innerHTML = `<td colspan="4">Nenhum item encontrado para "<b></b>".</td>`;
+      noneRow.style.display = 'none';
+      tbody.appendChild(noneRow);
+    }
+    noneRow.querySelector('b').textContent = q || '';
+    noneRow.style.display = (visiveis === 0 && tbody.querySelectorAll('tr').length > 0) ? '' : 'none';
+  }
+
+  inputBusca.addEventListener('input', (e)=> aplicarFiltro(e.target.value));
+</script>
 {% endblock %}

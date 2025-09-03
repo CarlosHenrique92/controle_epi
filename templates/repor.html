@@ -2,60 +2,89 @@
 {% block title %}Reposição{% endblock %}
 
 {% block content %}
-<h1>Reposição de estoque</h1>
-<p class="page-sub muted">Procure o item e reponha pelo botão de salvar em cada linha. Você também pode usar o modo em lote (antigo) se preferir.</p>
+<h1>Reposição de Estoque</h1>
+<p class="page-sub muted">Informe a quantidade a repor em cada item e clique em <b>Aplicar</b>.</p>
 
-<!-- Busca -->
-<form method="GET" class="form-line" id="form-repor-busca" autocomplete="off">
-  <div>
-    <label for="q">Buscar (nome ou código)</label>
-    <input class="input" type="text" id="q" name="q" value="{{ q or '' }}" placeholder="Ex.: capacete, EPI000123">
+<!-- Barra de pesquisa -->
+<div class="table-toolbar column-left">
+  <div class="toolbar-search">
+    <input class="input" id="busca-repor" placeholder="🔍 Pesquisar item ou código…">
   </div>
-  <div class="form-actions">
-    <button class="btn outline" type="submit">Filtrar</button>
-  </div>
-</form>
+</div>
 
-{% if resumo %}
-  <div class="alert alert-success">{{ resumo }}</div>
-{% endif %}
+<form method="POST" id="form-repor">
+  <table class="table" id="tabela-repor">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Código</th>
+        <th>Saldo atual</th>
+        <th>Repor</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in itens %}
+      <tr>
+        <td class="col-nome">{{ it.nome }}</td>
+        <td class="col-codigo small">{{ it.codigo }}</td>
+        <td>{{ it.saldo }}</td>
+        <td>
+          <input type="number" name="qtd_{{ it.id }}" value="0" min="0" class="input" style="max-width:100px">
+        </td>
+      </tr>
+      {% endfor %}
+      {% if itens|length == 0 %}
+      <tr><td colspan="4">Nenhum item cadastrado.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>Item</th>
-      <th>Código</th>
-      <th style="text-align:right">Saldo</th>
-      <th style="width: 220px; text-align:right">Repor</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for it in itens %}
-    <tr>
-      <td class="nome-item">{{ it.nome }}</td>
-      <td class="small codigo-item">{{ it.codigo }}</td>
-      <td style="text-align:right">{{ it.saldo }}</td>
-      <td style="text-align:right">
-        <!-- Mini-form por linha -->
-        <form method="POST" class="actions-inline" style="justify-content:flex-end;">
-          <input type="hidden" name="item_id" value="{{ it.id }}">
-          <input type="hidden" name="q" value="{{ q or '' }}">
-          <input class="input" type="number" name="qtd" min="1" step="1" placeholder="0" style="width: 90px;">
-          <button class="btn primary" type="submit">Salvar</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-    {% if itens|length == 0 %}
-    <tr><td colspan="4">Nenhum item encontrado.</td></tr>
-    {% endif %}
-  </tbody>
-</table>
-
-
-<form method="POST" class="form-line" style="margin-top:10px;">
-  <div class="form-actions" style="justify-content:flex-end;">
-    <button class="btn outline" type="submit">Aplicar alterações (modo em lote)</button>
+  <div class="form-actions" style="margin-top:14px">
+    <button type="submit" class="btn primary">Aplicar</button>
+    <a href="{{ url_for('baixa_automatica') }}" class="btn secondary">Voltar</a>
   </div>
 </form>
 {% endblock %}
+
+{% block scripts %}
+<script>
+  // Normaliza string removendo acentos
+  const normalize = (s) => (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase();
+
+  const inputBusca = document.getElementById('busca-repor');
+  const tbody = document.querySelector('#tabela-repor tbody');
+
+  function aplicarFiltro(q){
+    const query = normalize(q);
+    let visiveis = 0;
+    tbody.querySelectorAll('tr').forEach(tr => {
+      if (tr.querySelector('.col-nome')) {
+        const nome = normalize(tr.querySelector('.col-nome').textContent);
+        const codigo = normalize(tr.querySelector('.col-codigo').textContent);
+        const ok = !query || nome.includes(query) || codigo.includes(query);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) visiveis++;
+      }
+    });
+
+    // linha "nenhum resultado"
+    let noneRow = tbody.querySelector('.row-none');
+    if (!noneRow) {
+      noneRow = document.createElement('tr');
+      noneRow.className = 'row-none';
+      noneRow.innerHTML = `<td colspan="4">Nenhum item encontrado para "<b></b>".</td>`;
+      noneRow.style.display = 'none';
+      tbody.appendChild(noneRow);
+    }
+    noneRow.querySelector('b').textContent = q || '';
+    noneRow.style.display = (visiveis === 0) ? '' : 'none';
+  }
+
+  inputBusca.addEventListener('input', (e)=> aplicarFiltro(e.target.value));
+</script>
+{% endblock %}
+

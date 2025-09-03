@@ -8,114 +8,200 @@
 {% if ok and msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
 {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
 
-<!-- Linha do formulário -->
-<form method="POST" id="form-baixa" autocomplete="off" class="form-line">
-  <div>
-    <label for="destinatario">Destinatário</label>
-    <input class="input" id="destinatario" name="destinatario" value="{{ destinatario_atual }}" required>
+<!-- Form em linha, largura total -->
+<form method="POST" id="form-baixa" autocomplete="off">
+  <div class="form-field">
+    <label for="destinatario" class="label-strong">Destinatário</label>
+    <input class="input" id="destinatario" name="destinatario"
+           value="{{ destinatario_atual }}" required>
   </div>
-  <div>
-    <label for="codigo">Código do item</label>
+
+  <div class="form-field">
+    <label for="codigo" class="label-strong">Código do item</label>
     <input class="input" id="codigo" name="codigo" placeholder="Bipe aqui…" autofocus>
   </div>
 
-  <div class="form-actions">
+  <div>
     <button class="btn primary" type="submit">Registrar</button>
+  </div>
+
+  <div>
     <button class="btn outline" type="button" id="btn-relatorio-hoje">Relatório de hoje</button>
   </div>
 </form>
 
-<!-- Botão de exportar em cima do título -->
-<div class="stock-header">
-  <a class="btn outline" href="{{ url_for('estoque_export') }}">Exportar estoque (Excel)</a>
+
+<!-- Toolbar da tabela: exportar (esquerda) e busca logo abaixo -->
+<div class="table-toolbar column-left">
+  <div class="left">
+    <a class="btn outline" href="{{ url_for('estoque_export') }}">
+  Exportar estoque (Excel)
+</a>
+
+  </div>
+  
 </div>
 
-<h2>Estoque atual</h2>
-
-<table class="table">
+<h2 class="mt-12">Estoque atual</h2>
+<div class="toolbar-search">
+    <input class="input" id="busca-estoque" placeholder="🔍 Pesquisar item ou código…">
+</div>
+<table class="table" id="tabela-estoque">
   <thead>
     <tr>
       <th>Item</th>
+      <th>CA</th>
       <th>Código</th>
-      <th style="text-align:right">Saldo</th>
+      <th>Saldo</th>
     </tr>
   </thead>
   <tbody>
-    {% for item in itens %}
+  {% for item in itens %}
     <tr>
-      <td>{{ item.nome }}</td>
-      <td class="small">{{ item.codigo }}</td>
-      <td style="text-align:right">{{ item.saldo }}</td>
+      <td class="col-nome">{{ item.nome }}</td>
+      <td class="col-ca">{{ item.ca or '-' }}</td>
+      <td class="col-codigo small">{{ item.codigo }}</td>
+      <td class="col-saldo">{{ item.saldo }}</td>
     </tr>
-    {% endfor %}
-    {% if itens|length == 0 %}
-    <tr><td colspan="3">Nenhum item cadastrado.</td></tr>
-    {% endif %}
+  {% endfor %}
+  {% if itens|length == 0 %}
+    <!-- ajusta colspan p/ 4 colunas -->
+    <tr class="row-empty"><td colspan="4">Nenhum item cadastrado.</td></tr>
+  {% endif %}
   </tbody>
 </table>
 {% endblock %}
 
 {% block scripts %}
-<style>
-  /* Grid: 2 campos + coluna de ações */
-  .form-line{
-    display:grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap:12px;
-    align-items:end;
-    margin-bottom: 10px;
-  }
-  .form-actions{
-    display:flex;
-    gap:8px;
-    align-items:center;
-    justify-content:flex-end;
-  }
-  /* Labels mais visíveis nesta página */
-  #form-baixa label{
-    font-size:13px;
-    color:#374151;
-    font-weight:600;
-    display:block;
-    margin-bottom:6px;
-  }
-  /* Botão Exportar acima, à esquerda */
-  .stock-header{
-    margin: 8px 0;
-    display:flex;
-    justify-content:flex-start;
-  }
-</style>
-
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const btnRelatorio = document.getElementById('btn-relatorio-hoje');
-    const inputDest = document.getElementById('destinatario');
-    const inputCod  = document.getElementById('codigo');
+  // ===== Avisos reutilizando seu CSS (.alert .alert-success / .alert-danger)
+function ensureFlashArea() {
+  let area = document.getElementById('flash-area');
+  if (!area) {
+    // cria um container logo acima do form, sem alterar template
+    const form = document.getElementById('form-baixa');
+    area = document.createElement('div');
+    area.id = 'flash-area';
+    area.style.margin = '8px 0';
+    (form ? form : document.body).insertAdjacentElement('beforebegin', area);
+  }
+  return area;
+}
+function flash(type, text, timeout = 3000) {
+  const area = ensureFlashArea();
+  const div = document.createElement('div');
+  div.className = `alert alert-${type}`;
+  div.textContent = text;
+  area.prepend(div);
+  if (timeout) setTimeout(() => div.remove(), timeout);
+}
 
-    inputCod && inputCod.focus();
+  
+  // Util: remove acentos e normaliza
+  const normalize = (s) => (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase();
 
-    function hojeBR(){
-      const d = new Date();
-      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  // Relatório de hoje abre com o destinatário atual
+  function hojeBR(){
+    const d=new Date();
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+  }
+  document.getElementById('btn-relatorio-hoje').addEventListener('click', function(){
+    const dest = document.getElementById('destinatario').value.trim();
+    const p = new URLSearchParams({destinatario:dest, data_ini:hojeBR(), data_fim:hojeBR()});
+    window.open(`/relatorios?${p.toString()}`,'_blank');
+  });
+
+  // Filtro em tempo real da tabela
+  const inputBusca = document.getElementById('busca-estoque');
+  const tbody = document.querySelector('#tabela-estoque tbody');
+
+  function aplicarFiltro(q){
+    const query = normalize(q);
+    let visiveis = 0;
+    tbody.querySelectorAll('tr').forEach(tr => {
+      // pula linha "vazia" padrão quando não há itens
+      if (tr.classList.contains('row-empty')) return;
+
+      const nome = normalize(tr.querySelector('.col-nome')?.textContent);
+      const codigo = normalize(tr.querySelector('.col-codigo')?.textContent);
+      // NOVO: inclui CA no filtro
+      const ca = normalize(tr.querySelector('.col-ca')?.textContent);
+
+      const ok = !query || nome.includes(query) || codigo.includes(query) || ca.includes(query);
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visiveis++;
+    });
+
+    // controla linha "nenhum resultado"
+    let noneRow = tbody.querySelector('.row-none');
+    if (!noneRow) {
+      noneRow = document.createElement('tr');
+      noneRow.className = 'row-none';
+      // ajusta colspan p/ 4 colunas
+      noneRow.innerHTML = `<td colspan="4">Nenhum item encontrado para "<b></b>".</td>`;
+      noneRow.style.display = 'none';
+      tbody.appendChild(noneRow);
     }
+    noneRow.querySelector('b').textContent = q || '';
+    noneRow.style.display = (visiveis === 0 && tbody.querySelectorAll('tr:not(.row-empty)').length > 0) ? '' : 'none';
+  }
 
-    if (btnRelatorio) {
-      btnRelatorio.addEventListener('click', () => {
-        const dest = (inputDest?.value || '').trim();
-        if (!dest) {
-          alert('Informe o destinatário primeiro.');
-          inputDest?.focus();
-          return;
-        }
-        const params = new URLSearchParams({
-          destinatario: dest,
-          data_ini: hojeBR(),
-          data_fim: hojeBR()
-        });
-        window.location.href = `/relatorios?${params.toString()}`;
+  inputBusca.addEventListener('input', (e)=> aplicarFiltro(e.target.value));
+  window.addEventListener('load', ()=> document.getElementById('codigo')?.focus());
+
+  // Pegue os elementos existentes (não altere o layout)
+  const form = document.getElementById('form-baixa');
+  const campoDest = document.getElementById('destinatario');
+  const campoCod  = document.getElementById('codigo');
+
+  // 1) Destinatário começa SEMPRE vazio ao entrar/voltar para a página
+  window.addEventListener('DOMContentLoaded', () => { if (campoDest) campoDest.value = ''; });
+  window.addEventListener('pageshow', (e) => { if (e.persisted && campoDest) campoDest.value = ''; });
+  window.addEventListener('beforeunload', () => { if (campoDest) campoDest.value = ''; });
+
+  // 2) Envio via AJAX (mantém a página, então o destinatário continua preenchido enquanto bipando)
+  form?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      const resp = await fetch(form.action || location.pathname, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept':'application/json' },
+        credentials: 'same-origin'
       });
+
+      if (resp.redirected) { window.location.href = resp.url; return; }
+
+      const ct = (resp.headers.get('content-type') || '').toLowerCase();
+      if (!ct.includes('application/json')) {
+        flash('danger', 'Resposta não-JSON do servidor. Verifique login/rota.');
+        return;
+      }
+
+      const data = await resp.json();
+
+      if (data.ok) {
+        // ✅ AVISO DE SUCESSO (igual ao padrão do seu CSS .alert-success)
+        flash('success', data.msg || `Baixa registrada. Restante: ${data.restante}`);
+        if (campoCod) { campoCod.value = ''; campoCod.focus(); }
+        // não limpamos o destinatário aqui (fica enquanto a página estiver aberta)
+      } else {
+        // ⚠️ AVISO DE ERRO
+        flash('danger', data.erro || 'Falha ao registrar baixa.');
+      }
+    } catch (err) {
+      console.error(err);
+      flash('danger', 'Não consegui registrar via AJAX. Verifique o servidor.');
     }
+  });
+
+  // 3) Muitos leitores enviam Enter no final do código — dispara o submit
+  campoCod?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); form?.requestSubmit(); }
   });
 </script>
 {% endblock %}

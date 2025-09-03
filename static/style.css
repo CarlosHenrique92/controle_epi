@@ -42,11 +42,22 @@ a:hover { text-decoration: underline; }
 .menu a.active { background: var(--accent); color:#fff; }
 
 /* CONTAINER & CARD */
-.container { max-width:1024px; margin:24px auto; padding:0 16px; }
-.card {
-  background: var(--card); border:1px solid var(--border); border-radius: var(--radius);
-  padding:18px; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+.container {
+  width: 100%;
+  max-width: 100%;
+  margin: 24px auto;
+  padding: 0 24px;   /* dá um respiro nas laterais */
 }
+
+.card {
+  width: 100%;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
 
 /* HEADINGS & TEXT */
 h1 { font-size:22px; margin:0 0 12px; }
@@ -132,17 +143,18 @@ label { font-size:12px; color: var(--muted); margin-bottom:6px; display:block; }
 /* GRID/FORM PADRÃO (o que alinhou as páginas) */
 .form-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
 
-/* Linha com 3 campos + coluna de ações (padrão gerenciar) */
-.form-line { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:12px; align-items:end; }
-
-/* PÁGINAS ESPECÍFICAS: novo & baixa (mesma altura inputs/botões) */
-.form-novo .input,
+/* Formulário da baixa: inputs e botões ocupam largura total */
+#form-baixa {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr; /* destinatário | código | registrar | relatório */
+  gap: 12px;
+  align-items: end;
+}
 #form-baixa .input,
-.form-novo input,
-#form-baixa input { height:42px; line-height:42px; box-sizing:border-box; }
+#form-baixa .btn {
+  width: 100%;
+}
 
-.form-novo .btn,
-#form-baixa .btn { height:42px; line-height:42px; padding:0 16px; box-sizing:border-box; }
 
 /* REPOSIÇÃO mesma altura/layout */
 #form-repor .input, #form-repor .btn { height:42px; line-height:42px; box-sizing:border-box; }
@@ -182,6 +194,150 @@ label { font-size:12px; color: var(--muted); margin-bottom:6px; display:block; }
   text-align: center;
 }
 
+/* === Baixa: inputs e botões ocupando toda a largura, alinhados === */
+#form-baixa{
+  display:grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr; /* dest | código | registrar | relatório */
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+#form-baixa .input,
+#form-baixa .btn{ 
+  height:42px; 
+  line-height:42px; 
+  box-sizing:border-box; 
+  width:100%; 
+}
+
+#form-baixa .form-field{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:6px; 
+}
+
+
+/* Toolbar acima do título da tabela */
+.page-toolbar{ display:flex; justify-content:flex-start; gap:8px; margin:8px 0 4px; }
+
+/* Espaço antes do título */
+.mt-12{ margin-top:12px; }
+
+/* Responsivo: empilha no mobile */
+@media (max-width: 900px){
+  #form-baixa{ grid-template-columns: 1fr; }
+}
 
 
 
+/* === Padronizar altura dos botões na página de Relatórios === */
+#form-relatorios .btn {
+  height: 42px;
+  line-height: 42px;
+  padding: 0 16px;   /* deixa o texto centralizado e evita botão "gordo" */
+  box-sizing: border-box;
+}
+
+/* Grid do formulário de baixa (inputs e botões em linha, full-width) */
+#form-baixa{
+  display:grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr; /* dest | código | registrar | relatório */
+  gap:12px;
+  align-items:end;
+  margin-bottom:12px;
+}
+#form-baixa .form-field{ display:flex; flex-direction:column; gap:6px; }
+#form-baixa .input,
+#form-baixa .btn{ height:42px; line-height:42px; box-sizing:border-box; width:100%; }
+.label-strong{ font-size:13px; color:#111827; font-weight:600; }
+
+/* Toolbar da tabela: exportar à esquerda, busca à direita */
+.table-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:8px 0 4px;
+}
+.table-toolbar .right{ min-width: 260px; }
+
+/* Espaçamento antes do título */
+.mt-12{ margin-top:12px; }
+
+/* Responsivo */
+@media (max-width: 900px){
+  #form-baixa{ grid-template-columns: 1fr; }
+  .table-toolbar{ flex-direction:column; align-items:stretch; }
+  .table-toolbar .right{ min-width: 100%; }
+}
+
+/* Toolbar da tabela em coluna, alinhada à esquerda */
+.table-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 8px 0 4px;
+  flex-wrap: wrap;
+}
+.table-toolbar.column-left {
+  flex-direction: column;   /* botão em cima, busca embaixo */
+  gap: 10px;
+}
+
+/* Campo de busca abaixo do botão, alinhado à esquerda */
+.toolbar-search {
+  width: 100%;
+  max-width: 520px;         /* largura confortável */
+}
+.toolbar-search .input {
+  height: 42px;
+  line-height: 42px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Espaçamento antes do título */
+.mt-12 { margin-top: 12px; }
+
+/* Responsivo (sem mudanças necessárias aqui, mas mantemos consistente) */
+@media (max-width: 900px){
+  .toolbar-search { max-width: 100%; }
+}
+
+/* Padronizar largura dos botões dentro das ações da tabela */
+.actions-inline .btn {
+  min-width: 150px;   /* largura mínima */
+  justify-content: center;
+  text-align: center;
+}
+
+/* ===== Overrides específicos da página de Baixa ===== */
+
+/* Tabela do estoque: alinha o cabeçalho "Saldo" à direita e estabiliza os números */
+#tabela-estoque th:last-child,
+#tabela-estoque .th-saldo { text-align: right; }
+#tabela-estoque td.col-saldo {
+  text-align: right;
+  font-variant-numeric: tabular-nums; /* evita "dançar" */
+  width: 90px;                         /* largura fixa agradável */
+}
+
+/* Garante que, no layout de 4 colunas do formulário, cada botão ocupe sua coluna
+   e não quebre para baixo (mesmo se houver regras anteriores conflitantes) */
+#form-baixa > .form-field .btn {
+  width: 100% !important;   /* padrão do projeto: botões “cheios” nas colunas 3 e 4 */
+  height: 42px;
+  line-height: 42px;
+}
+
+/* Última coluna das tabelas: cabeçalho acompanha as células */
+.table th:last-child {
+  text-align: right; /* para números */
+}
+
+/* Caso a última coluna seja de ações (botões), centraliza */
+.table th.col-acoes,
+.table td.col-acoes {
+  text-align: center;
+}

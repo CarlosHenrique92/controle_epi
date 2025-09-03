@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, make_response, session, abort, flash
+from flask import Flask, render_template, request, redirect, url_for, send_file, make_response, session, abort, flash, jsonify
 import sqlite3
 from datetime import datetime
 import os
@@ -96,6 +96,17 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_etq_item   ON etiquetas(item_id)")
 
         conn.commit()
+def ensure_ca_column(db_path='epi.db'):
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    try:
+        # roda uma única vez; nas próximas dará OperationalError e ignoramos
+        cur.execute("ALTER TABLE itens ADD COLUMN CA TEXT;")
+        con.commit()
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        con.close()
 
 def proximo_numero_etiqueta(conn) -> int:
     cur = conn.cursor()
@@ -151,12 +162,6 @@ def salvar_barcode_png(
 
 
 def buscar_movimentacoes(destinatario=None, data_ini=None, data_fim=None):
-    """
-    Retorna lista de movimentações (saídas) com nome do item, código, qtd, destinatário e data.
-    Filtros opcionais:
-      - destinatario: string exata (case-insensitive simples)
-      - data_ini, data_fim: 'YYYY-MM-DD' (compara pela parte de data: substr(data,1,10))
-    """
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -181,12 +186,14 @@ def buscar_movimentacoes(destinatario=None, data_ini=None, data_fim=None):
         sql += " AND substr(m.data,1,10) <= ?"
         params.append(data_fim.strip())
 
-    sql += " ORDER BY m.data ASC, m.id ASC"
+    # 👉 agora mais novos primeiro
+    sql += " ORDER BY m.data DESC, m.id DESC"
 
     cur.execute(sql, tuple(params))
     rows = cur.fetchall()
     conn.close()
     return rows
+
 
 # --- util: converte 'DD/MM/AAAA' -> 'AAAA-MM-DD' (ou retorna '' se vazio/invalid) ---
 def br_to_iso(d: str) -> str:
@@ -202,37 +209,58 @@ def br_to_iso(d: str) -> str:
         pass
     return ""  # se inválida, não aplica filtro
 
-# ----------------- Tela de BAIXA automática -----------------
+# -----------------Tela de BAIXA automática -----------------
 @app.route("/", methods=["GET", "POST"])
 @login_required_for(methods=("POST",))
 def baixa_automatica():
-    """
-    GET: exibe estoque e formulário de baixa (destinatário + código).
-    POST: baixa 1 un. do item (pelo código) e registra movimentação.
-    Mantém o destinatário em cookie por 30 dias.
-    """
+    # helper para listar itens
+    def listar_itens():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Garante que sempre venha CA e SALDO "seguros" ('' e 0 quando nulos)
+        cur.execute("""
+            SELECT 
+                id,
+                nome,
+                codigo,
+                COALESCE(ca, '')     AS ca,
+                COALESCE(saldo, 0)    AS saldo
+            FROM itens
+            ORDER BY nome COLLATE NOCASE
+        """)
+        itens = cur.fetchall()
+        conn.close()
+        return itens
+
+    # Detecta AJAX (para devolver JSON)
+    wants_json = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in (request.headers.get("Accept") or "")
+    )
+
     if request.method == "POST":
         codigo = (request.form.get("codigo") or "").strip()
-        # usa o digitado OU o do cookie (para não precisar digitar sempre)
-        destinatario_form = (request.form.get("destinatario") or "").strip()
-        destinatario_cookie = (request.cookies.get("destinatario") or "").strip()
-        destinatario = destinatario_form or destinatario_cookie or "Sem nome"
+        destinatario = (request.form.get("destinatario") or "").strip()
+
+        if not codigo:
+            if wants_json:
+                return jsonify({"ok": False, "erro": "Código vazio"}), 400
+            return render_template("baixa.html", erro="Código vazio", itens=listar_itens())
 
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT * FROM itens WHERE codigo = ?", (codigo,))
         item = cur.fetchone()
-
         if not item:
             conn.close()
-            # redireciona com mensagem de erro
-            resp = make_response(redirect(url_for("baixa_automatica", erro=f"Código {codigo} não encontrado.")))
-            # se usuário digitou um novo destinatário, salva no cookie
-            if destinatario_form:
-                resp.set_cookie("destinatario", destinatario, max_age=60*60*24*30)
-            return resp
+            if wants_json:
+                return jsonify({"ok": False, "erro": f"Código {codigo} não encontrado."}), 404
+            return render_template("baixa.html", erro=f"Código {codigo} não encontrado.", itens=listar_itens())
 
-        novo = max(0, item["saldo"] - 1)  # evita negativo
+        # 🔒 Blindagem: se saldo vier NULL, trata como 0
+        saldo_atual = item["saldo"] if item["saldo"] is not None else 0
+        novo = max(0, saldo_atual - 1)
+
         cur.execute("UPDATE itens SET saldo = ? WHERE id = ?", (novo, item["id"]))
         cur.execute(
             "INSERT INTO movimentacoes (item_id, quantidade, destinatario, data) VALUES (?, ?, ?, ?)",
@@ -241,33 +269,17 @@ def baixa_automatica():
         conn.commit()
         conn.close()
 
-        # Confirmação via querystring e fixa o destinatário em cookie (se informado)
-        msg_ok = f"{item['nome']} (-1) para {destinatario}. Saldo: {novo}"
-        resp = make_response(redirect(url_for("baixa_automatica", ok=1, msg=msg_ok)))
-        if destinatario_form:
-            resp.set_cookie("destinatario", destinatario, max_age=60*60*24*30)
-        return resp
+        msg_ok = f"{item['nome']} (-1) para {destinatario or 'Sem nome'}. Saldo: {novo}"
 
-    # GET
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM itens ORDER BY nome")
-    itens = cur.fetchall()
-    conn.close()
+        if wants_json:
+            return jsonify({"ok": True, "restante": novo, "msg": msg_ok})
 
-    destinatario_atual = request.cookies.get("destinatario", "")
-    ok = request.args.get("ok") == "1"
-    msg = request.args.get("msg", "")
-    erro = request.args.get("erro", "")
+        return render_template("baixa.html", ok=True, msg=msg_ok, itens=listar_itens())
 
-    return render_template(
-        "baixa.html",
-        itens=itens,
-        destinatario_atual=destinatario_atual,
-        ok=ok,
-        msg=msg,
-        erro=erro
-    )
+    # GET normal
+    return render_template("baixa.html", itens=listar_itens())
+
+
 #-------------login------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -573,18 +585,21 @@ def excluir_item(item_id):
 # ----------------- RELATORIOS-----------------
 @app.route("/relatorios", methods=["GET"])
 def relatorios():
-    # leitura crua (como o usuário digitou)
+    # leitura do formulário
     destinatario = (request.args.get("destinatario") or "").strip()
-    data_ini_br = (request.args.get("data_ini") or "").strip()
-    data_fim_br = (request.args.get("data_fim") or "").strip()
+    data_ini_br  = (request.args.get("data_ini") or "").strip()
+    data_fim_br  = (request.args.get("data_fim") or "").strip()
 
-    # conversão para ISO (para o SQL)
+    # conversão para ISO
     data_ini_iso = br_to_iso(data_ini_br)
     data_fim_iso = br_to_iso(data_fim_br)
 
-    movimentos = []
-    if destinatario or data_ini_br or data_fim_br:
-        movimentos = buscar_movimentacoes(destinatario, data_ini_iso, data_fim_iso)
+    # 👉 sempre busca: se vier tudo vazio, retorna TODAS as movimentações
+    movimentos = buscar_movimentacoes(
+        destinatario if destinatario else None,
+        data_ini_iso if data_ini_iso else None,
+        data_fim_iso if data_fim_iso else None
+    )
 
     # sugestões de destinatários
     conn = get_db_connection()
@@ -593,7 +608,6 @@ def relatorios():
     destinatarios_unicos = [r["destinatario"] for r in cur.fetchall()]
     conn.close()
 
-    # re-exibe no formulário o que o usuário digitou (BR)
     return render_template(
         "relatorios.html",
         movimentos=movimentos,
@@ -803,18 +817,28 @@ def etiquetas_historico():
 @app.route("/estoque/export", methods=["GET"])
 def estoque_export():
     conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT nome, saldo FROM itens ORDER BY nome")
+    cur.execute("""
+        SELECT 
+            nome,
+            COALESCE(ca, '')   AS ca,
+            codigo,
+            COALESCE(saldo, 0) AS saldo
+        FROM itens
+        ORDER BY nome COLLATE NOCASE
+    """)
     rows = cur.fetchall()
     conn.close()
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Estoque"
-    ws.append(["Item", "Saldo"])
+    # Cabeçalho na ordem pedida
+    ws.append(["Item", "CA", "Código", "Saldo"])
 
     for r in rows:
-        ws.append([r["nome"], r["saldo"]])
+        ws.append([r["nome"], r["ca"], r["codigo"], r["saldo"]])
 
     bio = BytesIO()
     wb.save(bio)
@@ -828,13 +852,23 @@ def estoque_export():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-
-
 if __name__ == "__main__":
-    init_db()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.config.update(
+        TEMPLATES_AUTO_RELOAD=True,   # recarrega HTML ao salvar
+        SEND_FILE_MAX_AGE_DEFAULT=0,  # não cacheia static/
+    )
+    app.jinja_env.auto_reload = True
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True,           # ativa debug
+        use_reloader=True     # ativa reloader automático
+    )
+
+
 
 
 #  git add .
-#  git commit -m "Sistema configurado com senhas e relatorios"
+#  git commit -m "Relatorios de estoque e tabela de CA"
 #  git push
