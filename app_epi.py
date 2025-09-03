@@ -853,18 +853,8 @@ def estoque_export():
     )
 
 if __name__ == "__main__":
-    app.config.update(
-        TEMPLATES_AUTO_RELOAD=True,   # recarrega HTML ao salvar
-        SEND_FILE_MAX_AGE_DEFAULT=0,  # não cacheia static/
-    )
-    app.jinja_env.auto_reload = True
-
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True,           # ativa debug
-        use_reloader=True     # ativa reloader automático
-    )
+    init_db()
+    app.run(host="0.0.0.0", port=5000, debug=False)
 
 
 
